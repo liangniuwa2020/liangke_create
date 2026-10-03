@@ -75,6 +75,7 @@ class WeatherWidget4x2Provider : AppWidgetProvider() {
             var updateTime = SimpleDateFormat("HH:mm 更新", Locale.CHINA).format(Date())
 
             var hourlyArr: org.json.JSONArray? = null
+            var forecastArr: org.json.JSONArray? = null
 
             if (!jsonStr.isNullOrEmpty()) {
                 try {
@@ -90,6 +91,7 @@ class WeatherWidget4x2Provider : AppWidgetProvider() {
 
                     updateTime = json.optString("updateTime", updateTime)
                     hourlyArr = json.optJSONArray("hourly24") ?: json.optJSONArray("hourly")
+                    forecastArr = json.optJSONArray("forecast7d") ?: json.optJSONArray("forecast")
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -100,36 +102,30 @@ class WeatherWidget4x2Provider : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_aqi_text, aqiText)
             views.setTextViewText(R.id.widget_temperature, tempStr)
             views.setTextViewText(R.id.widget_weather_desc, weatherDesc)
-            setWidgetIcon(context, views, R.id.widget_weather_icon, getWeatherIconRes(weatherType), 20)
+            setWidgetIcon(context, views, R.id.widget_weather_icon, getWeatherIconRes(weatherType), 18)
 
-            // 绑定 24 小时逐时天气代表节点 (6 个关键时刻覆盖整整24小时)
-            val timeIds = intArrayOf(
+            // 第 1 排：绑定间隔 2 小时逐时天气 (6 个节点: 0, 2, 4, 6, 8, 10)
+            val hourlyTimeIds = intArrayOf(
                 R.id.widget_h1_time, R.id.widget_h2_time, R.id.widget_h3_time,
                 R.id.widget_h4_time, R.id.widget_h5_time, R.id.widget_h6_time
             )
-            val iconIds = intArrayOf(
+            val hourlyIconIds = intArrayOf(
                 R.id.widget_h1_icon, R.id.widget_h2_icon, R.id.widget_h3_icon,
                 R.id.widget_h4_icon, R.id.widget_h5_icon, R.id.widget_h6_icon
             )
-            val tempIds = intArrayOf(
+            val hourlyTempIds = intArrayOf(
                 R.id.widget_h1_temp, R.id.widget_h2_temp, R.id.widget_h3_temp,
                 R.id.widget_h4_temp, R.id.widget_h5_temp, R.id.widget_h6_temp
             )
-            val descIds = intArrayOf(
-                R.id.widget_h1_desc, R.id.widget_h2_desc, R.id.widget_h3_desc,
-                R.id.widget_h4_desc, R.id.widget_h5_desc, R.id.widget_h6_desc
-            )
 
-            val sampleIndices = intArrayOf(0, 4, 8, 12, 16, 20)
-            val defaultTimes = arrayOf("现在", "01:00", "05:00", "09:00", "13:00", "17:00")
-            val defaultTemps = arrayOf("24°", "22°", "20°", "25°", "27°", "23°")
-            val defaultDescs = arrayOf("晴", "多云", "阴", "晴", "晴", "小雨")
+            val sampleIndices = intArrayOf(0, 2, 4, 6, 8, 10)
+            val defaultTimes = arrayOf("现在", "01:00", "03:00", "05:00", "07:00", "09:00")
+            val defaultTemps = arrayOf("24°", "22°", "21°", "20°", "23°", "25°")
             val defaultTypes = arrayOf("sunny", "cloudy", "cloudy", "sunny", "sunny", "rain")
 
             for (i in 0 until 6) {
                 var time = defaultTimes[i]
                 var temp = defaultTemps[i]
-                var desc = defaultDescs[i]
                 var type = defaultTypes[i]
 
                 val targetIdx = sampleIndices[i]
@@ -139,15 +135,52 @@ class WeatherWidget4x2Provider : AppWidgetProvider() {
                         time = hObj.optString("time", time)
                         val tVal = hObj.optInt("temp", 24)
                         temp = "$tVal°"
-                        desc = hObj.optString("desc", desc)
                         type = hObj.optString("type", type)
                     }
                 }
 
-                views.setTextViewText(timeIds[i], time)
-                views.setTextViewText(tempIds[i], temp)
-                views.setTextViewText(descIds[i], desc)
-                setWidgetIcon(context, views, iconIds[i], getWeatherIconRes(type), 20)
+                views.setTextViewText(hourlyTimeIds[i], time)
+                views.setTextViewText(hourlyTempIds[i], temp)
+                setWidgetIcon(context, views, hourlyIconIds[i], getWeatherIconRes(type), 16)
+            }
+
+            // 第 2 排：绑定未来 6 天 (每天天气)
+            val dailyTitleIds = intArrayOf(
+                R.id.widget_f1_title, R.id.widget_f2_title, R.id.widget_f3_title,
+                R.id.widget_f4_title, R.id.widget_f5_title, R.id.widget_f6_title
+            )
+            val dailyIconIds = intArrayOf(
+                R.id.widget_f1_icon, R.id.widget_f2_icon, R.id.widget_f3_icon,
+                R.id.widget_f4_icon, R.id.widget_f5_icon, R.id.widget_f6_icon
+            )
+            val dailyTempIds = intArrayOf(
+                R.id.widget_f1_temp, R.id.widget_f2_temp, R.id.widget_f3_temp,
+                R.id.widget_f4_temp, R.id.widget_f5_temp, R.id.widget_f6_temp
+            )
+
+            val defaultDailyTitles = arrayOf("今天", "明天", "后天", "周二", "周三", "周四")
+            val defaultDailyTypes = arrayOf("sunny", "cloudy", "rain", "cloudy", "sunny", "rain")
+            val defaultDailyTemps = arrayOf("26°/15°", "25°/14°", "23°/13°", "22°/12°", "24°/13°", "20°/11°")
+
+            for (i in 0 until 6) {
+                var title = defaultDailyTitles[i]
+                var type = defaultDailyTypes[i]
+                var temp = defaultDailyTemps[i]
+
+                if (forecastArr != null && i < forecastArr.length()) {
+                    val d = forecastArr.optJSONObject(i)
+                    if (d != null) {
+                        title = d.optString("title", title)
+                        type = d.optString("type", type)
+                        val max = d.optInt("maxTemp", 24)
+                        val min = d.optInt("minTemp", 15)
+                        temp = "$max°/$min°"
+                    }
+                }
+
+                views.setTextViewText(dailyTitleIds[i], title)
+                views.setTextViewText(dailyTempIds[i], temp)
+                setWidgetIcon(context, views, dailyIconIds[i], getWeatherIconRes(type), 16)
             }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)

@@ -68,7 +68,7 @@ export default function AboutCleanModal({ visible, onClose }) {
             ))}
 
             <View style={styles.versionCard}>
-              <Text style={styles.versionTitle}>版本信息：v1.1.6 (小部件极致美化 · 4×3 底部全量饱满排版)</Text>
+              <Text style={styles.versionTitle}>版本信息：v1.1.7 (小部件双排矩阵优化 · 4×3与4×2双排天气)</Text>
               <Text style={styles.versionSub}>专为追求清爽体验的用户量身定制</Text>
             </View>
           </ScrollView>

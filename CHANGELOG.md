@@ -1,5 +1,26 @@
 # 墨迹天气纯净版 (Moji Weather Pure) - 更新日志
 
+## [v1.1.2] - 2026-10-03
+### 🚀 启动崩溃排查与全架构兼容修复 (Critical Bugfix)
+- **修复离线 JS Bundle 打包缺失导致的启动崩溃**：
+  - 深度排查发现此前因打包内存限制导致 `assets/index.android.bundle` 未写入 APK，App 启动找不到 JS 核心而闪退；
+  - 现已通过优化内存分配成功将 1.5MB 完整业务离线代码束与字体图标资源硬编译打包进 APK 的 `assets/` 目录，无需依赖任何网络服务即可秒开启动。
+- **全架构原生库通用支持 (Universal ABI)**：
+  - 此前仅打包了 `arm64-v8a`，在部分电脑模拟器（夜神、雷电等 x86/x86_64）或 32 位手机上缺少原生 `.so` 动态库导致闪退；
+  - 现已开放全 CPU 架构集成（包含 `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`），全面兼容市面所有主流安卓真机与各品牌电脑模拟器！
+
+### 📦 安装包产物清单 (v1.1.2)
+- Android 手机安装包：
+  - [MojiWeather_v1.1.2.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather_v1.1.2.apk)
+  - [MojiWeather.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather.apk)
+  - [墨迹天气纯净版_v1.1.2.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/墨迹天气纯净版_v1.1.2.apk)
+- Windows 电脑端安装运行包：
+  - [MojiWeather_v1.1.2.exe](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather_v1.1.2.exe)
+  - [MojiWeather.exe](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather.exe)
+  - [墨迹天气纯净版_v1.1.2.exe](file:///E:/Antigravity%20ex_project/moji-weather-app/墨迹天气纯净版_v1.1.2.exe)
+
+---
+
 ## [v1.1.1] - 2026-10-03
 ### 🌟 视觉重构与防眩光抗白底专项修复
 - **彻底杜绝纯白刺眼与无法看清问题**：

@@ -129,32 +129,32 @@ export default function WidgetCenterModal({
                   </Text>
                 </View>
 
-                {/* 未来3天趋势 */}
+                {/* 最近一周7天天气趋势 */}
                 <View style={styles.w4x3ForecastRow}>
-                  <View style={[styles.w4x3DayCol, selectedStyle === 'white' && { backgroundColor: 'rgba(0,0,0,0.04)' }]}>
-                    <Text style={[styles.w4x3DayTitle, selectedStyle === 'white' && styles.textDarkSub]}>明天</Text>
-                    <Ionicons name="sunny" size={16} color="#f59e0b" style={{ marginVertical: 2 }} />
-                    <Text style={[styles.w4x3DayTemp, selectedStyle === 'white' && styles.textDark]}>{today.maxTemp}°/{today.minTemp}°</Text>
-                  </View>
-                  <View style={[styles.w4x3DayCol, selectedStyle === 'white' && { backgroundColor: 'rgba(0,0,0,0.04)' }]}>
-                    <Text style={[styles.w4x3DayTitle, selectedStyle === 'white' && styles.textDarkSub]}>后天</Text>
-                    <Ionicons name="cloudy" size={16} color="#38bdf8" style={{ marginVertical: 2 }} />
-                    <Text style={[styles.w4x3DayTemp, selectedStyle === 'white' && styles.textDark]}>{today.maxTemp - 1}°/{today.minTemp - 1}°</Text>
-                  </View>
-                  <View style={[styles.w4x3DayCol, selectedStyle === 'white' && { backgroundColor: 'rgba(0,0,0,0.04)' }]}>
-                    <Text style={[styles.w4x3DayTitle, selectedStyle === 'white' && styles.textDarkSub]}>大后天</Text>
-                    <Ionicons name="rainy" size={16} color="#60a5fa" style={{ marginVertical: 2 }} />
-                    <Text style={[styles.w4x3DayTemp, selectedStyle === 'white' && styles.textDark]}>{today.maxTemp - 2}°/{today.minTemp - 2}°</Text>
-                  </View>
+                  {[
+                    { day: '今天', icon: 'sunny', color: '#f59e0b', max: today.maxTemp, min: today.minTemp },
+                    { day: '明天', icon: 'cloudy', color: '#38bdf8', max: today.maxTemp - 1, min: today.minTemp - 1 },
+                    { day: '后天', icon: 'rainy', color: '#60a5fa', max: today.maxTemp - 2, min: today.minTemp - 2 },
+                    { day: '周二', icon: 'cloudy', color: '#94a3b8', max: today.maxTemp - 3, min: today.minTemp - 3 },
+                    { day: '周三', icon: 'sunny', color: '#f59e0b', max: today.maxTemp - 1, min: today.minTemp - 2 },
+                    { day: '周四', icon: 'rainy', color: '#60a5fa', max: today.maxTemp - 4, min: today.minTemp - 4 },
+                    { day: '周五', icon: 'sunny', color: '#f59e0b', max: today.maxTemp - 2, min: today.minTemp - 3 },
+                  ].map((item, idx) => (
+                    <View key={idx} style={[styles.w4x3DayCol, selectedStyle === 'white' && { backgroundColor: 'rgba(0,0,0,0.04)' }]}>
+                      <Text style={[styles.w4x3DayTitle, selectedStyle === 'white' && styles.textDarkSub]}>{item.day}</Text>
+                      <Ionicons name={item.icon} size={15} color={item.color} style={{ marginVertical: 2 }} />
+                      <Text style={[styles.w4x3DayTemp, selectedStyle === 'white' && styles.textDark]}>{item.max}°/{item.min}°</Text>
+                    </View>
+                  ))}
                 </View>
               </View>
             </View>
 
-            {/* 微件 1：4x2 经典时钟天气卡片 */}
+            {/* 微件 2：4x2 24小时逐时天气预报微件 */}
             <View style={styles.widgetPreviewSection}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>2. 4×2 经典时钟天气微件</Text>
-                <Text style={styles.sectionTag}>经典主屏首选</Text>
+                <Text style={styles.sectionTitle}>2. 4×2 24小时逐时天气微件</Text>
+                <Text style={[styles.sectionTag, { color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>全天逐时趋势</Text>
               </View>
 
               <View
@@ -165,39 +165,55 @@ export default function WidgetCenterModal({
                   selectedStyle === 'dark' && styles.darkBg,
                 ]}
               >
-                <View style={styles.w4x2Row}>
-                  <View>
-                    <Text style={[styles.wClockNum, selectedStyle === 'white' && styles.textDark]}>18:50</Text>
-                    <Text style={[styles.wDateLabel, selectedStyle === 'white' && styles.textDarkSub]}>10月3日 星期六 · {city.name}</Text>
-                  </View>
-
-                  <View style={styles.wDivider} />
-
-                  <View style={styles.wRightInfo}>
-                    <View style={styles.wIconRow}>
-                      <Ionicons
-                        name={current.weather.icon}
-                        size={28}
-                        color={current.weather.type === 'sunny' ? '#f59e0b' : '#38bdf8'}
-                      />
-                      <Text style={[styles.wTempText, selectedStyle === 'white' && styles.textDark]}>{current.temp}°</Text>
-                    </View>
-                    <Text style={[styles.wSubCondition, selectedStyle === 'white' && styles.textDarkSub]}>{current.weather.label} · {today.maxTemp}°/{today.minTemp}°</Text>
+                {/* 顶栏：城市与当前气温 */}
+                <View style={[styles.w4x3Top, { marginBottom: 8 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="location" size={13} color="#38bdf8" />
+                    <Text style={[styles.w4x3City, selectedStyle === 'white' && styles.textDark]}>{city.name}</Text>
                     {showAqi && aqi && (
-                      <View style={[styles.wAqiBadge, { backgroundColor: aqi.color }]}>
+                      <View style={[styles.wAqiBadge, { backgroundColor: aqi.color, marginLeft: 6 }]}>
                         <Text style={styles.wAqiText}>AQI {aqi.aqi} {aqi.level}</Text>
                       </View>
                     )}
                   </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons
+                      name={current.weather.icon}
+                      size={18}
+                      color={current.weather.type === 'sunny' ? '#f59e0b' : '#38bdf8'}
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text style={[styles.wTempText, { fontSize: 16 }, selectedStyle === 'white' && styles.textDark]}>{current.temp}°</Text>
+                    <Text style={[styles.wSubCondition, { marginLeft: 4 }, selectedStyle === 'white' && styles.textDarkSub]}>{current.weather.label}</Text>
+                  </View>
+                </View>
+
+                {/* 24小时逐时预报栏 */}
+                <View style={styles.w4x3ForecastRow}>
+                  {[
+                    { time: '现在', icon: 'sunny', color: '#f59e0b', temp: current.temp, desc: '晴' },
+                    { time: '01:00', icon: 'cloudy', color: '#38bdf8', temp: current.temp - 2, desc: '多云' },
+                    { time: '05:00', icon: 'cloudy', color: '#94a3b8', temp: current.temp - 4, desc: '阴' },
+                    { time: '09:00', icon: 'sunny', color: '#f59e0b', temp: current.temp + 1, desc: '晴' },
+                    { time: '13:00', icon: 'sunny', color: '#f59e0b', temp: current.temp + 3, desc: '晴' },
+                    { time: '17:00', icon: 'rainy', color: '#60a5fa', temp: current.temp - 1, desc: '小雨' },
+                  ].map((item, idx) => (
+                    <View key={idx} style={[styles.w4x3DayCol, selectedStyle === 'white' && { backgroundColor: 'rgba(0,0,0,0.04)' }]}>
+                      <Text style={[styles.w4x3DayTitle, selectedStyle === 'white' && styles.textDarkSub]}>{item.time}</Text>
+                      <Ionicons name={item.icon} size={15} color={item.color} style={{ marginVertical: 2 }} />
+                      <Text style={[styles.w4x3DayTemp, selectedStyle === 'white' && styles.textDark]}>{item.temp}°</Text>
+                      <Text style={[{ fontSize: 9, color: '#94a3b8', marginTop: 1 }, selectedStyle === 'white' && styles.textDarkSub]}>{item.desc}</Text>
+                    </View>
+                  ))}
                 </View>
               </View>
             </View>
 
-            {/* 微件 3：4x1 极简透明横条微件 */}
+            {/* 微件 3：4x1 精简时钟天气横条微件 */}
             <View style={styles.widgetPreviewSection}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>3. 4×1 极简透明横条微件</Text>
-                <Text style={styles.sectionTag}>轻薄不挡壁纸</Text>
+                <Text style={styles.sectionTitle}>3. 4×1 精简时钟天气微件</Text>
+                <Text style={styles.sectionTag}>轻薄横条首选</Text>
               </View>
 
               <View
@@ -209,8 +225,23 @@ export default function WidgetCenterModal({
                 ]}
               >
                 <View style={styles.slimLeft}>
-                  <Text style={[styles.slimTime, selectedStyle === 'white' && styles.textDark]}>18:50</Text>
-                  <Text style={[styles.slimCity, selectedStyle === 'white' && styles.textDarkSub]}>{city.name}</Text>
+                  <Text style={[styles.slimTime, selectedStyle === 'white' && styles.textDark]}>21:30</Text>
+                  <Text style={[styles.slimCity, selectedStyle === 'white' && styles.textDarkSub]}>10月3日 周六</Text>
+                </View>
+                <View style={styles.wDivider} />
+                <View style={{ flex: 1, paddingLeft: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="location" size={12} color="#38bdf8" />
+                    <Text style={[{ fontSize: 13, fontWeight: '700', color: '#fff', marginLeft: 2 }, selectedStyle === 'white' && styles.textDark]}>{city.name}</Text>
+                    {showAqi && aqi && (
+                      <View style={[styles.wAqiBadge, { backgroundColor: aqi.color, marginLeft: 6 }]}>
+                        <Text style={styles.wAqiText}>AQI {aqi.aqi} {aqi.level}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[{ fontSize: 10, color: '#94a3b8', marginTop: 2 }, selectedStyle === 'white' && styles.textDarkSub]}>
+                    {current.windDirection} {current.windScale?.text || '微风'} · 湿度 {current.humidity}%
+                  </Text>
                 </View>
                 <View style={styles.slimRight}>
                   <Ionicons
@@ -219,9 +250,9 @@ export default function WidgetCenterModal({
                     color={current.weather.type === 'sunny' ? '#f59e0b' : '#38bdf8'}
                     style={{ marginRight: 6 }}
                   />
-                  <Text style={[styles.slimTemp, selectedStyle === 'white' && styles.textDark]}>{current.temp}° {current.weather.label}</Text>
-                  <View style={[styles.miniAqi, { backgroundColor: aqi ? aqi.color : '#2ecc71' }]}>
-                    <Text style={styles.miniAqiText}>{aqi ? aqi.level : '优'}</Text>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={[styles.slimTemp, selectedStyle === 'white' && styles.textDark]}>{current.temp}°</Text>
+                    <Text style={[{ fontSize: 9, color: '#cbd5e1' }, selectedStyle === 'white' && styles.textDarkSub]}>{current.weather.label} {today.maxTemp}°/{today.minTemp}°</Text>
                   </View>
                 </View>
               </View>
@@ -263,7 +294,7 @@ export default function WidgetCenterModal({
                 <Text style={styles.guideText}>
                   1. 在手机桌面空白区域【长按】或双指捏合；{'\n'}
                   2. 点击底部出现的【小部件】或【微件 / 桌面插件】；{'\n'}
-                  3. 找到【墨迹天气】，选择【4×3 综合天气时钟】或【4×2 经典时钟】直接长按拖动至桌面即可！
+                  3. 找到【墨迹纯净天气】，选择【4×3 一周预报】、【4×2 24小时天气】或【4×1 时钟天气】长按拖动至桌面即可！
                 </Text>
               </View>
             </View>

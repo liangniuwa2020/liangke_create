@@ -19,6 +19,7 @@ class WeatherWidgetModule(private val reactContext: ReactApplicationContext) : R
 
             WeatherWidget4x3Provider.updateAllWidgets(reactContext)
             WeatherWidget4x2Provider.updateAllWidgets(reactContext)
+            WeatherWidget4x1Provider.updateAllWidgets(reactContext)
         } catch (e: Exception) {
             e.printStackTrace()
         }

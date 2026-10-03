@@ -37,6 +37,7 @@ import CityManageModal from './src/components/CityManageModal';
 import AboutCleanModal from './src/components/AboutCleanModal';
 import SkinThemeModal from './src/components/SkinThemeModal';
 import WidgetCenterModal from './src/components/WidgetCenterModal';
+import DailyDetailModal from './src/components/DailyDetailModal';
 
 const STORAGE_SAVED_CITIES_KEY = '@pure_moji_weather_saved_cities';
 const STORAGE_CURRENT_CITY_KEY = '@pure_moji_weather_current_city';
@@ -68,6 +69,8 @@ export default function App() {
   const [isCleanModalVisible, setIsCleanModalVisible] = useState(false);
   const [isSkinModalVisible, setIsSkinModalVisible] = useState(false);
   const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
+  const [isDailyDetailVisible, setIsDailyDetailVisible] = useState(false);
+  const [selectedDayDetail, setSelectedDayDetail] = useState(null);
 
   // 自动根据 GPS / 网络高精度定位当前位置
   const autoDetectLocation = useCallback(async (isSilent = false) => {
@@ -128,15 +131,24 @@ export default function App() {
       const data = await fetchCompleteWeather(city.latitude, city.longitude);
       setWeatherData(data);
 
-      // 同步更新 Android 原生桌面小部件 (4x3 与 4x2)
+      // 同步更新 Android 原生桌面小部件 (4x3, 4x2 与 4x1)
       if (NativeModules.WeatherWidgetModule && NativeModules.WeatherWidgetModule.updateWidgetData) {
         try {
-          const forecastPayload = (data.daily || []).slice(1, 4).map(d => ({
-            title: d.displayDate,
+          const forecast7dPayload = (data.daily || []).slice(0, 7).map((d, idx) => ({
+            title: idx === 0 ? '今天' : (idx === 1 ? '明天' : (idx === 2 ? '后天' : (d.dayName || d.displayDate || '周一'))),
+            date: d.monthDay || '',
             desc: d.weather?.label || '晴',
             type: d.weather?.type || 'sunny',
             maxTemp: d.maxTemp,
             minTemp: d.minTemp,
+          }));
+
+          const hourly24Payload = (data.hourly || []).slice(0, 24).map(h => ({
+            time: h.displayTime || '现在',
+            temp: h.temp,
+            desc: h.weather?.label || '晴',
+            type: h.weather?.type || 'sunny',
+            rainProb: h.rainProb || 0,
           }));
 
           const widgetPayload = {
@@ -152,7 +164,9 @@ export default function App() {
             humidityInfo: `湿度 ${data.current?.humidity || 48}%`,
             airDesc: data.aqi ? `空气质量${data.aqi.level}` : '体感舒适',
             updateTime: data.current?.updateTime || '刚刚更新',
-            forecast: forecastPayload,
+            forecast: forecast7dPayload,
+            forecast7d: forecast7dPayload,
+            hourly24: hourly24Payload,
           };
           NativeModules.WeatherWidgetModule.updateWidgetData(JSON.stringify(widgetPayload));
         } catch (we) {
@@ -300,8 +314,14 @@ export default function App() {
               {/* 2. 24小时逐小时精准天气 */}
               <HourlyForecastCard hourly={weatherData.hourly} />
 
-              {/* 3. 7~15天超长趋势预报 */}
-              <DailyForecastCard daily={weatherData.daily} />
+              {/* 3. 7~15天超长趋势预报 - 点击某天查看详情 */}
+              <DailyForecastCard
+                daily={weatherData.daily}
+                onPressDay={(day) => {
+                  setSelectedDayDetail(day);
+                  setIsDailyDetailVisible(true);
+                }}
+              />
 
               {/* 4. 空气质量 AQI 专属监测报告卡 */}
               <AirQualityCard aqi={weatherData.aqi} />
@@ -377,6 +397,17 @@ export default function App() {
             today={weatherData?.today}
             aqi={weatherData?.aqi}
             city={currentCity}
+          />
+
+          {/* 7-15天单日天气详情弹窗 */}
+          <DailyDetailModal
+            visible={isDailyDetailVisible}
+            onClose={() => setIsDailyDetailVisible(false)}
+            day={selectedDayDetail}
+            allDays={weatherData?.daily || []}
+            onSelectDay={(day) => {
+              setSelectedDayDetail(day);
+            }}
           />
         </SafeAreaView>
       </WeatherBackground>

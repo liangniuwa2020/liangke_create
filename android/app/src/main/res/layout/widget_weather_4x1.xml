@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:background="@drawable/widget_bg_4x1"
+    android:paddingLeft="12dp"
+    android:paddingRight="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
+    android:gravity="center_vertical">
+
+    <!-- 1. 左侧：时钟与日期 -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+
+        <TextClock
+            android:id="@+id/widget_text_clock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:format24Hour="HH:mm"
+            android:format12Hour="HH:mm"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:includeFontPadding="false" />
+
+        <TextView
+            android:id="@+id/widget_date_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="10月3日 周六"
+            android:textSize="10sp"
+            android:textColor="#CBD5E1"
+            android:layout_marginTop="1dp" />
+    </LinearLayout>
+
+    <!-- 竖直半透明分割线 -->
+    <FrameLayout
+        android:layout_width="1dp"
+        android:layout_height="32dp"
+        android:background="#33FFFFFF"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp" />
+
+    <!-- 2. 中间：城市、空气质量与辅助指标 -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:src="@drawable/ic_widget_location" />
+
+            <TextView
+                android:id="@+id/widget_city_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="南昌"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:layout_marginLeft="3dp" />
+
+            <LinearLayout
+                android:id="@+id/widget_aqi_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/widget_aqi_badge"
+                android:paddingLeft="5dp"
+                android:paddingRight="5dp"
+                android:paddingTop="1dp"
+                android:paddingBottom="1dp"
+                android:layout_marginLeft="6dp">
+
+                <TextView
+                    android:id="@+id/widget_aqi_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="优 32"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_sub_info"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="微风 2级 · 湿度48%"
+            android:textSize="10sp"
+            android:textColor="#94A3B8"
+            android:layout_marginTop="2dp" />
+    </LinearLayout>
+
+    <!-- 弹性间隔占位 -->
+    <FrameLayout
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:layout_weight="1" />
+
+    <!-- 3. 右侧：天气图标、气温、现象与刷新 -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ImageView
+            android:id="@+id/widget_weather_icon"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_weather_sunny" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="end|center_vertical"
+            android:layout_marginLeft="6dp">
+
+            <TextView
+                android:id="@+id/widget_temperature"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="24°"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:includeFontPadding="false" />
+
+            <TextView
+                android:id="@+id/widget_weather_desc"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="晴 26°/15°"
+                android:textSize="10sp"
+                android:textColor="#E2E8F0"
+                android:layout_marginTop="1dp" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/widget_btn_refresh"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/ic_widget_refresh"
+            android:padding="1dp"
+            android:layout_marginLeft="8dp" />
+    </LinearLayout>
+
+</LinearLayout>

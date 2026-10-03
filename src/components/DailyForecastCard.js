@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-export default function DailyForecastCard({ daily = [] }) {
+export default function DailyForecastCard({ daily = [], onPressDay }) {
   if (!daily || daily.length === 0) return null;
 
   // 计算全局最低温与最高温用于绘制相对温度条
@@ -20,7 +20,7 @@ export default function DailyForecastCard({ daily = [] }) {
           <Ionicons name="calendar-outline" size={17} color="rgba(255, 255, 255, 0.9)" style={{ marginRight: 6 }} />
           <Text style={styles.title}>7-15天趋势预报</Text>
         </View>
-        <Text style={styles.subtitle}>中长期数值预报</Text>
+        <Text style={styles.subtitle}>点击查看每日详情</Text>
       </View>
 
       <View style={styles.list}>
@@ -32,7 +32,12 @@ export default function DailyForecastCard({ daily = [] }) {
           const widthPercent = Math.max(18, (((item.maxTemp - item.minTemp) / totalSpan) * 100));
 
           return (
-            <View key={`daily-${item.dateStr}-${index}`} style={[styles.dayRow, index !== daily.length - 1 && styles.borderBottom]}>
+            <TouchableOpacity
+              key={`daily-${item.dateStr}-${index}`}
+              style={[styles.dayRow, index !== daily.length - 1 && styles.borderBottom]}
+              onPress={() => onPressDay && onPressDay(item)}
+              activeOpacity={0.65}
+            >
               {/* 日期列 */}
               <View style={styles.dateCol}>
                 <Text style={[styles.dayName, isToday && styles.highlightText]}>
@@ -67,7 +72,7 @@ export default function DailyForecastCard({ daily = [] }) {
               {/* 高低温及温度可视化进度条 */}
               <View style={styles.tempRangeCol}>
                 <Text style={styles.minTempText}>{item.minTemp}°</Text>
-                
+
                 {/* 可视化温度条轨道 */}
                 <View style={styles.barTrack}>
                   <LinearGradient
@@ -86,7 +91,10 @@ export default function DailyForecastCard({ daily = [] }) {
 
                 <Text style={styles.maxTempText}>{item.maxTemp}°</Text>
               </View>
-            </View>
+
+              {/* 右箭头提示可点击 */}
+              <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.3)" style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
           );
         })}
       </View>
@@ -126,7 +134,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.65)',
+    color: 'rgba(255, 255, 255, 0.45)',
   },
   list: {
     width: '100%',

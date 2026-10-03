@@ -83,20 +83,6 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
             var airDesc = "体感舒适"
             var updateTime = SimpleDateFormat("HH:mm 更新", Locale.CHINA).format(Date())
 
-            var f1Title = "明天"
-            var f1Desc = "晴"
-            var f1Type = "sunny"
-            var f1Temp = "25° / 14°"
-
-            var f2Title = "后天"
-            var f2Desc = "多云"
-            var f2Type = "cloudy"
-            var f2Temp = "23° / 13°"
-
-            var f3Title = "周一"
-            var f3Desc = "小雨"
-            var f3Type = "rain"
-            var f3Temp = "21° / 12°"
 
             if (!jsonStr.isNullOrEmpty()) {
                 try {
@@ -118,37 +104,11 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
                     airDesc = json.optString("airDesc", airDesc)
                     updateTime = json.optString("updateTime", updateTime)
 
-                    // 读取未来预报
-                    val forecastArr = json.optJSONArray("forecast")
-                    if (forecastArr != null && forecastArr.length() >= 3) {
-                        val d1 = forecastArr.getJSONObject(0)
-                        f1Title = d1.optString("title", f1Title)
-                        f1Desc = d1.optString("desc", f1Desc)
-                        f1Type = d1.optString("type", f1Type)
-                        f1Temp = "${d1.optInt("maxTemp", 25)}° / ${d1.optInt("minTemp", 14)}°"
-
-                        val d2 = forecastArr.getJSONObject(1)
-                        f2Title = d2.optString("title", f2Title)
-                        f2Desc = d2.optString("desc", f2Desc)
-                        f2Type = d2.optString("type", f2Type)
-                        f2Temp = "${d2.optInt("maxTemp", 23)}° / ${d2.optInt("minTemp", 13)}°"
-
-                        val d3 = forecastArr.getJSONObject(2)
-                        f3Title = d3.optString("title", f3Title)
-                        f3Desc = d3.optString("desc", f3Desc)
-                        f3Type = d3.optString("type", f3Type)
-                        f3Temp = "${d3.optInt("maxTemp", 21)}° / ${d3.optInt("minTemp", 12)}°"
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-
             // 4. 计算当前中文日期
             val dateFmt = SimpleDateFormat("M月d日 E", Locale.CHINA)
             val currentDateStr = dateFmt.format(Date())
 
-            // 5. 绑定视图数据
+            // 5. 绑定头部与指标数据
             views.setTextViewText(R.id.widget_city_name, cityName)
             views.setTextViewText(R.id.widget_update_time, updateTime)
             views.setTextViewText(R.id.widget_date_label, currentDateStr)
@@ -162,23 +122,62 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
 
             setWidgetIcon(context, views, R.id.widget_weather_icon, getWeatherIconRes(weatherType), 38)
 
-            // 预报 Day 1
-            views.setTextViewText(R.id.widget_f1_title, f1Title)
-            views.setTextViewText(R.id.widget_f1_desc, f1Desc)
-            views.setTextViewText(R.id.widget_f1_temp, f1Temp)
-            setWidgetIcon(context, views, R.id.widget_f1_icon, getWeatherIconRes(f1Type), 24)
+            // 6. 绑定未来 7 天 (最近一周) 天气预报
+            val titleIds = intArrayOf(
+                R.id.widget_f1_title, R.id.widget_f2_title, R.id.widget_f3_title,
+                R.id.widget_f4_title, R.id.widget_f5_title, R.id.widget_f6_title, R.id.widget_f7_title
+            )
+            val iconIds = intArrayOf(
+                R.id.widget_f1_icon, R.id.widget_f2_icon, R.id.widget_f3_icon,
+                R.id.widget_f4_icon, R.id.widget_f5_icon, R.id.widget_f6_icon, R.id.widget_f7_icon
+            )
+            val descIds = intArrayOf(
+                R.id.widget_f1_desc, R.id.widget_f2_desc, R.id.widget_f3_desc,
+                R.id.widget_f4_desc, R.id.widget_f5_desc, R.id.widget_f6_desc, R.id.widget_f7_desc
+            )
+            val tempIds = intArrayOf(
+                R.id.widget_f1_temp, R.id.widget_f2_temp, R.id.widget_f3_temp,
+                R.id.widget_f4_temp, R.id.widget_f5_temp, R.id.widget_f6_temp, R.id.widget_f7_temp
+            )
 
-            // 预报 Day 2
-            views.setTextViewText(R.id.widget_f2_title, f2Title)
-            views.setTextViewText(R.id.widget_f2_desc, f2Desc)
-            views.setTextViewText(R.id.widget_f2_temp, f2Temp)
-            setWidgetIcon(context, views, R.id.widget_f2_icon, getWeatherIconRes(f2Type), 24)
+            val defaultTitles = arrayOf("今天", "明天", "后天", "周二", "周三", "周四", "周五")
+            val defaultDescs = arrayOf("晴", "多云", "小雨", "阴", "晴", "中雨", "晴")
+            val defaultTypes = arrayOf("sunny", "cloudy", "rain", "cloudy", "sunny", "rain", "sunny")
+            val defaultTemps = arrayOf("26°/15°", "25°/14°", "23°/13°", "22°/12°", "24°/13°", "20°/11°", "23°/12°")
 
-            // 预报 Day 3
-            views.setTextViewText(R.id.widget_f3_title, f3Title)
-            views.setTextViewText(R.id.widget_f3_desc, f3Desc)
-            views.setTextViewText(R.id.widget_f3_temp, f3Temp)
-            setWidgetIcon(context, views, R.id.widget_f3_icon, getWeatherIconRes(f3Type), 24)
+            var forecastArr: org.json.JSONArray? = null
+            if (!jsonStr.isNullOrEmpty()) {
+                try {
+                    val json = JSONObject(jsonStr)
+                    forecastArr = json.optJSONArray("forecast7d") ?: json.optJSONArray("forecast")
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            for (i in 0 until 7) {
+                var title = defaultTitles[i]
+                var desc = defaultDescs[i]
+                var type = defaultTypes[i]
+                var temp = defaultTemps[i]
+
+                if (forecastArr != null && i < forecastArr.length()) {
+                    val d = forecastArr.optJSONObject(i)
+                    if (d != null) {
+                        title = d.optString("title", title)
+                        desc = d.optString("desc", desc)
+                        type = d.optString("type", type)
+                        val max = d.optInt("maxTemp", 24)
+                        val min = d.optInt("minTemp", 15)
+                        temp = "$max°/$min°"
+                    }
+                }
+
+                views.setTextViewText(titleIds[i], title)
+                views.setTextViewText(descIds[i], desc)
+                views.setTextViewText(tempIds[i], temp)
+                setWidgetIcon(context, views, iconIds[i], getWeatherIconRes(type), 18)
+            }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }

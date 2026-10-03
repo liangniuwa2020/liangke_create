@@ -39,7 +39,7 @@
           android:resource="@xml/weather_widget_4x3_info"/>
     </receiver>
 
-    <!-- 4x2 墨迹翻牌时钟桌面小部件 -->
+    <!-- 4x2 墨迹逐时天气桌面小部件 -->
     <receiver
         android:name=".WeatherWidget4x2Provider"
         android:label="@string/widget_4x2_name"
@@ -51,6 +51,20 @@
       <meta-data
           android:name="android.appwidget.provider"
           android:resource="@xml/weather_widget_4x2_info"/>
+    </receiver>
+
+    <!-- 4x1 墨迹精简时钟天气桌面小部件 -->
+    <receiver
+        android:name=".WeatherWidget4x1Provider"
+        android:label="@string/widget_4x1_name"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+        <action android:name="com.pure.mojiweather.ACTION_REFRESH_WIDGET_4X1"/>
+      </intent-filter>
+      <meta-data
+          android:name="android.appwidget.provider"
+          android:resource="@xml/weather_widget_4x1_info"/>
     </receiver>
   </application>
 </manifest>

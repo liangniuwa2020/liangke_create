@@ -1,7 +1,9 @@
 <resources>
   <string name="app_name">墨迹纯净天气</string>
-  <string name="widget_4x3_name">墨迹 4×3 综合天气时钟</string>
-  <string name="widget_4x3_desc">经典大屏桌面小部件：数字时钟、实时天气、空气质量与未来3天气温趋势</string>
-  <string name="widget_4x2_name">墨迹 4×2 时钟天气</string>
-  <string name="widget_4x2_desc">经典桌面小部件：超大数字时钟与实时天气</string>
+  <string name="widget_4x3_name">墨迹 4×3 综合天气时钟 (一周预报)</string>
+  <string name="widget_4x3_desc">经典大屏桌面小部件：数字时钟、实时天气、空气质量与最近一周7天气象预报</string>
+  <string name="widget_4x2_name">墨迹 4×2 24小时逐时天气</string>
+  <string name="widget_4x2_desc">逐时预报小部件：实时天气与最近24小时气温变化趋势</string>
+  <string name="widget_4x1_name">墨迹 4×1 精简时钟天气</string>
+  <string name="widget_4x1_desc">精简横幅小部件：实时走字时钟、当前天气、气温与空气质量</string>
 </resources>

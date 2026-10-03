@@ -11,57 +11,99 @@ export default function CurrentWeatherCard({
 }) {
   if (!current) return null;
 
+  // 根据当前天气自动生成醒目通俗的天气总结简述
+  const getWeatherSummary = (code, label, temp) => {
+    if ([95, 96, 99].includes(code)) {
+      return '雷电与强降水交织，建议留在安全室内，紧闭门窗';
+    } else if ([61, 63, 65, 80, 81, 82].includes(code)) {
+      return '当前正在降雨，路面湿滑，出门请带好雨具并减速慢行';
+    } else if ([51, 53, 55].includes(code)) {
+      return '微雨绵绵，空气湿润，外出建议备一把便携折叠伞';
+    } else if ([71, 73, 75, 85, 86].includes(code)) {
+      return '雪花飘落，气温严寒易结冰，请穿戴保暖厚装';
+    } else if ([45, 48].includes(code)) {
+      return '能见度偏低，早晚驾车外出请开启雾灯，保持车距';
+    } else if ([2, 3].includes(code)) {
+      return '云层较厚遮挡日光，体感温和舒适，适宜外出活动';
+    } else {
+      if (temp >= 30) return '烈日当空体感偏热，请注意补水防暑与紫外线防晒';
+      if (temp <= 5) return '晴冷干燥风力明显，早晚温差较大，注意及时添衣';
+      return '阳光明媚开朗，微风不燥，正是外出运动的大好时光';
+    }
+  };
+
+  const weatherSummary = getWeatherSummary(current.weather_code, current.weather.label, current.temp);
+
   return (
     <View style={styles.container}>
-      {/* 核心气温与天气状况 */}
-      <View style={styles.mainInfo}>
-        <View style={styles.tempRow}>
-          <Text style={styles.tempText}>{current.temp}</Text>
-          <Text style={styles.degreeSymbol}>°</Text>
+      {/* 🌟 核心醒目区域：天气现象主角巨幅看板（开屏一眼看清） */}
+      <View style={styles.weatherHeroBox}>
+        {/* 左侧：超大动态天气图腾与微光光晕 */}
+        <View style={styles.iconAuraWrapper}>
+          <View style={styles.iconBackdrop} />
+          <Ionicons
+            name={current.weather.icon}
+            size={56}
+            color={current.weather.type === 'sunny' ? '#f59e0b' : '#ffffff'}
+          />
         </View>
 
-        <Text style={styles.weatherCondition}>{current.weather.label}</Text>
-
-        {/* 高低温与体感温度 */}
-        <View style={styles.tempRangeRow}>
-          <Text style={styles.tempRangeText}>
-            最高 {today.maxTemp}°  最低 {today.minTemp}°
-          </Text>
-          <View style={styles.divider} />
-          <Text style={styles.tempRangeText}>
-            体感 {current.apparentTemp}°
-          </Text>
-        </View>
-
-        {/* 墨迹经典指标胶囊条：空气质量 + 风级 + 湿度 */}
-        <View style={styles.tagPillsRow}>
-          <TouchableOpacity
-            style={[styles.aqiPill, { backgroundColor: aqi ? aqi.bgColor : 'rgba(0,0,0,0.2)' }]}
-            onPress={onPressAqi}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.aqiDot, { backgroundColor: aqi ? aqi.color : '#2ecc71' }]} />
-            <Text style={styles.aqiText}>
-              AQI {aqi ? aqi.aqi : '--'} {aqi ? aqi.level : '优'}
-            </Text>
-            <Ionicons name="chevron-forward" size={12} color="#ffffff" style={{ marginLeft: 2 }} />
-          </TouchableOpacity>
-
-          <View style={styles.infoPill}>
-            <Ionicons name="compass-outline" size={13} color="#ffffff" style={{ marginRight: 3 }} />
-            <Text style={styles.pillText}>
-              {current.windDirection} {current.windScale.text}
-            </Text>
+        {/* 右侧：超大粗体温度与天气现象标题 */}
+        <View style={styles.heroTextCol}>
+          <View style={styles.conditionTitleRow}>
+            <Text style={styles.conditionMainTitle}>{current.weather.label}</Text>
+            <View style={styles.dayNightTag}>
+              <Text style={styles.dayNightText}>{current.isDay ? '白天' : '夜间'}</Text>
+            </View>
           </View>
 
-          <View style={styles.infoPill}>
-            <Ionicons name="water-outline" size={13} color="#ffffff" style={{ marginRight: 3 }} />
-            <Text style={styles.pillText}>湿度 {current.humidity}%</Text>
+          <View style={styles.tempNumbersRow}>
+            <Text style={styles.tempLargeNumber}>{current.temp}</Text>
+            <Text style={styles.tempUnitDegree}>°C</Text>
+            <View style={styles.highLowCol}>
+              <Text style={styles.highLowText}>高 {today.maxTemp}°</Text>
+              <Text style={styles.highLowText}>低 {today.minTemp}°</Text>
+            </View>
           </View>
         </View>
       </View>
 
-      {/* 墨迹天气灵魂：短时降雨/出行提醒通知横幅 */}
+      {/* 实时体感与通俗气象解读导语 */}
+      <View style={styles.summaryBar}>
+        <Ionicons name="sparkles" size={14} color="#fef08a" style={{ marginRight: 6, marginTop: 1 }} />
+        <Text style={styles.summaryText}>
+          体感 {current.apparentTemp}° · {weatherSummary}
+        </Text>
+      </View>
+
+      {/* 墨迹经典指标胶囊条：空气质量 + 风向风级 + 相对湿度 */}
+      <View style={styles.tagPillsRow}>
+        <TouchableOpacity
+          style={[styles.aqiPill, { backgroundColor: aqi ? aqi.bgColor : 'rgba(255,255,255,0.2)' }]}
+          onPress={onPressAqi}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.aqiDot, { backgroundColor: aqi ? aqi.color : '#2ecc71' }]} />
+          <Text style={styles.aqiText}>
+            空气 {aqi ? aqi.level : '优'} · {aqi ? aqi.aqi : '--'}
+          </Text>
+          <Ionicons name="chevron-forward" size={12} color="#ffffff" style={{ marginLeft: 2 }} />
+        </TouchableOpacity>
+
+        <View style={styles.infoPill}>
+          <Ionicons name="paper-plane" size={12} color="#ffffff" style={{ marginRight: 4 }} />
+          <Text style={styles.pillText}>
+            {current.windDirection} {current.windScale.text}
+          </Text>
+        </View>
+
+        <View style={styles.infoPill}>
+          <Ionicons name="water" size={12} color="#93c5fd" style={{ marginRight: 4 }} />
+          <Text style={styles.pillText}>湿度 {current.humidity}%</Text>
+        </View>
+      </View>
+
+      {/* 墨迹分钟级短时降水通知横幅 */}
       {shortTermRain && (
         <View style={styles.shortTermBanner}>
           <View style={[styles.badgeIndicator, { backgroundColor: shortTermRain.color }]}>
@@ -83,70 +125,143 @@ export default function CurrentWeatherCard({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    paddingVertical: 18,
+    paddingTop: 8,
+    paddingBottom: 16,
     paddingHorizontal: 16,
   },
-  mainInfo: {
+  weatherHeroBox: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
   },
-  tempRow: {
+  iconAuraWrapper: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  iconBackdrop: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  heroTextCol: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  conditionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  conditionMainTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  dayNightTag: {
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  dayNightText: {
+    fontSize: 10,
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  tempNumbersRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'center',
-    marginLeft: 12,
   },
-  tempText: {
-    fontSize: 88,
-    fontWeight: '200',
-    color: '#ffffff',
-    lineHeight: 96,
-    letterSpacing: -2,
-  },
-  degreeSymbol: {
-    fontSize: 40,
+  tempLargeNumber: {
+    fontSize: 54,
     fontWeight: '300',
-    color: 'rgba(255, 255, 255, 0.85)',
-    marginTop: 6,
-  },
-  weatherCondition: {
-    fontSize: 22,
-    fontWeight: '600',
     color: '#ffffff',
-    marginTop: 2,
-    letterSpacing: 1,
+    lineHeight: 58,
+    letterSpacing: -1,
+    textShadowColor: 'rgba(0, 0, 0, 0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  tempRangeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  tempUnitDegree: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: 4,
+    marginLeft: 2,
+  },
+  highLowCol: {
+    justifyContent: 'center',
+    marginLeft: 14,
     marginTop: 8,
   },
-  tempRangeText: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '500',
+  highLowText: {
+    fontSize: 13,
+    color: '#ffffff',
+    fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  divider: {
-    width: 1,
-    height: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    marginHorizontal: 10,
+  summaryBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderRadius: 14,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  summaryText: {
+    fontSize: 12,
+    color: '#ffffff',
+    fontWeight: '500',
+    flex: 1,
+    lineHeight: 18,
   },
   tagPillsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    justifyContent: 'center',
-    marginTop: 14,
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 10,
     gap: 8,
   },
   aqiPill: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    justifyContent: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 8,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   aqiDot: {
     width: 7,
@@ -157,13 +272,15 @@ const styles = StyleSheet.create({
   aqiText: {
     fontSize: 12,
     color: '#ffffff',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   infoPill: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    justifyContent: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 8,
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderWidth: 1,
@@ -182,7 +299,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    marginTop: 18,
+    marginTop: 10,
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.4)',
     shadowColor: '#000000',
@@ -201,7 +318,7 @@ const styles = StyleSheet.create({
   shortTermText: {
     fontSize: 13,
     color: '#ffffff',
-    fontWeight: '500',
+    fontWeight: '600',
     flex: 1,
   },
 });

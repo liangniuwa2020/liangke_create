@@ -173,7 +173,7 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
                 views.setTextViewText(titleIds[i], title)
                 views.setTextViewText(descIds[i], desc)
                 views.setTextViewText(tempIds[i], temp)
-                setWidgetIcon(context, views, iconIds[i], getWeatherIconRes(type), 18)
+                setWidgetIcon(context, views, iconIds[i], getWeatherIconRes(type), 22)
             }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)

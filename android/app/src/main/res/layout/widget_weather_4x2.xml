@@ -5,7 +5,10 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_bg_4x3"
-    android:padding="12dp">
+    android:paddingLeft="12dp"
+    android:paddingRight="12dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp">
 
     <!-- 1. 顶部栏：城市、定位、空气质量指标 与 当前气温、刷新 -->
     <LinearLayout
@@ -90,26 +93,25 @@
             android:layout_height="wrap_content"
             android:text="晴朗"
             android:textSize="11sp"
-            android:textColor="#E2E8F0"
+            android:textColor="#38BDF8"
             android:layout_marginLeft="4dp" />
 
         <!-- 刷新按钮 -->
         <ImageView
             android:id="@+id/widget_btn_refresh"
-            android:layout_width="16dp"
-            android:layout_height="16dp"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
             android:src="@drawable/ic_widget_refresh"
             android:padding="1dp"
             android:layout_marginLeft="8dp" />
     </LinearLayout>
 
-    <!-- 2. 最近 24 小时逐时天气预报栏 (6个代表时间节点) -->
+    <!-- 2. 最近 24 小时逐时天气预报栏 (6个代表时间节点，铺满剩余高度) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:orientation="horizontal">
 
         <!-- 节点 1 (当前/现在) -->
         <LinearLayout
@@ -132,23 +134,32 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="现在"
-                android:textSize="10sp"
-                android:textColor="#E2E8F0" />
+                android:textSize="10.5sp"
+                android:textStyle="bold"
+                android:textColor="#38BDF8" />
+
+            <FrameLayout
+                android:layout_width="1dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <ImageView
                 android:id="@+id/widget_h1_icon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:src="@drawable/ic_weather_sunny"
-                android:layout_marginTop="2dp"
-                android:layout_marginBottom="2dp" />
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_weather_sunny" />
+
+            <FrameLayout
+                android:layout_width="1dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <TextView
                 android:id="@+id/widget_h1_temp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="24°"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF" />
 
@@ -157,7 +168,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="晴"
-                android:textSize="9sp"
+                android:textSize="9.5sp"
                 android:textColor="#CBD5E1"
                 android:layout_marginTop="1dp" />
         </LinearLayout>
@@ -183,23 +194,32 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="01:00"
-                android:textSize="10sp"
+                android:textSize="10.5sp"
+                android:textStyle="bold"
                 android:textColor="#E2E8F0" />
+
+            <FrameLayout
+                android:layout_width="1dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <ImageView
                 android:id="@+id/widget_h2_icon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:src="@drawable/ic_weather_cloudy"
-                android:layout_marginTop="2dp"
-                android:layout_marginBottom="2dp" />
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_weather_cloudy" />
+
+            <FrameLayout
+                android:layout_width="1dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <TextView
                 android:id="@+id/widget_h2_temp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="22°"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF" />
 
@@ -208,7 +228,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="多云"
-                android:textSize="9sp"
+                android:textSize="9.5sp"
                 android:textColor="#CBD5E1"
                 android:layout_marginTop="1dp" />
         </LinearLayout>
@@ -234,23 +254,32 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="05:00"
-                android:textSize="10sp"
+                android:textSize="10.5sp"
+                android:textStyle="bold"
                 android:textColor="#E2E8F0" />
+
+            <FrameLayout
+                android:layout_width="1dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <ImageView
                 android:id="@+id/widget_h3_icon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:src="@drawable/ic_weather_cloudy"
-                android:layout_marginTop="2dp"
-                android:layout_marginBottom="2dp" />
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_weather_cloudy" />
+
+            <FrameLayout
+                android:layout_width="1dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <TextView
                 android:id="@+id/widget_h3_temp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="20°"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF" />
 
@@ -259,7 +288,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="阴"
-                android:textSize="9sp"
+                android:textSize="9.5sp"
                 android:textColor="#CBD5E1"
                 android:layout_marginTop="1dp" />
         </LinearLayout>
@@ -285,23 +314,32 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="09:00"
-                android:textSize="10sp"
+                android:textSize="10.5sp"
+                android:textStyle="bold"
                 android:textColor="#E2E8F0" />
+
+            <FrameLayout
+                android:layout_width="1dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <ImageView
                 android:id="@+id/widget_h4_icon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:src="@drawable/ic_weather_sunny"
-                android:layout_marginTop="2dp"
-                android:layout_marginBottom="2dp" />
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_weather_sunny" />
+
+            <FrameLayout
+                android:layout_width="1dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <TextView
                 android:id="@+id/widget_h4_temp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="25°"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF" />
 
@@ -310,7 +348,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="晴"
-                android:textSize="9sp"
+                android:textSize="9.5sp"
                 android:textColor="#CBD5E1"
                 android:layout_marginTop="1dp" />
         </LinearLayout>
@@ -336,23 +374,32 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="13:00"
-                android:textSize="10sp"
+                android:textSize="10.5sp"
+                android:textStyle="bold"
                 android:textColor="#E2E8F0" />
+
+            <FrameLayout
+                android:layout_width="1dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <ImageView
                 android:id="@+id/widget_h5_icon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:src="@drawable/ic_weather_sunny"
-                android:layout_marginTop="2dp"
-                android:layout_marginBottom="2dp" />
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_weather_sunny" />
+
+            <FrameLayout
+                android:layout_width="1dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <TextView
                 android:id="@+id/widget_h5_temp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="27°"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF" />
 
@@ -361,7 +408,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="晴"
-                android:textSize="9sp"
+                android:textSize="9.5sp"
                 android:textColor="#CBD5E1"
                 android:layout_marginTop="1dp" />
         </LinearLayout>
@@ -387,23 +434,32 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="17:00"
-                android:textSize="10sp"
+                android:textSize="10.5sp"
+                android:textStyle="bold"
                 android:textColor="#E2E8F0" />
+
+            <FrameLayout
+                android:layout_width="1dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <ImageView
                 android:id="@+id/widget_h6_icon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:src="@drawable/ic_weather_rainy"
-                android:layout_marginTop="2dp"
-                android:layout_marginBottom="2dp" />
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_weather_rainy" />
+
+            <FrameLayout
+                android:layout_width="1dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <TextView
                 android:id="@+id/widget_h6_temp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="23°"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF" />
 
@@ -412,10 +468,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="小雨"
-                android:textSize="9sp"
+                android:textSize="9.5sp"
                 android:textColor="#CBD5E1"
                 android:layout_marginTop="1dp" />
         </LinearLayout>
     </LinearLayout>
-
 </LinearLayout>

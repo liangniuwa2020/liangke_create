@@ -68,7 +68,7 @@ export default function AboutCleanModal({ visible, onClose }) {
             ))}
 
             <View style={styles.versionCard}>
-              <Text style={styles.versionTitle}>版本信息：v1.1.0 (全天气专属皮肤与小部件版)</Text>
+              <Text style={styles.versionTitle}>版本信息：v1.1.1 (高辨识暗调高对比微光版)</Text>
               <Text style={styles.versionSub}>专为追求清爽体验的用户量身定制</Text>
             </View>
           </ScrollView>

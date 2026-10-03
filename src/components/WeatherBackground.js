@@ -1,61 +1,61 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, StyleSheet, Animated, Dimensions, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getSkinConfig } from '../utils/themeContext';
 
 const { width, height } = Dimensions.get('window');
 
-// 针对每种天气专门调配的高辨识度、鲜明沉浸的专属天气皮肤色系
+// 针对每种天气专门调配的高辨识度、鲜明沉浸、深邃抗眩光的专属天气皮肤色系（杜绝刺眼纯白，确保内容无论何时都清晰可辨）
 export const WEATHER_THEMES = {
   sunny_day: {
     name: '晴朗日光',
-    colors: ['#0284c7', '#0ea5e9', '#38bdf8', '#7dd3fc', '#bae6fd'],
+    colors: ['#075985', '#0284c7', '#0369a1', '#075985'],
     accent: '#f59e0b',
   },
   sunny_night: {
     name: '纯净星夜',
-    colors: ['#030712', '#0f172a', '#1e1b4b', '#312e81', '#3b82f6'],
+    colors: ['#030712', '#0b132b', '#0f172a', '#172554'],
     accent: '#fef08a',
   },
   sunset: {
     name: '落日晚霞',
-    colors: ['#2e1065', '#701a75', '#a21caf', '#c2410c', '#ea580c', '#fbbf24'],
+    colors: ['#2e1065', '#581c87', '#701a75', '#9d174d', '#c2410c'],
     accent: '#fde047',
   },
   cloudy_day: {
     name: '晴空白云',
-    colors: ['#0369a1', '#0284c7', '#38bdf8', '#93c5fd', '#c7d2fe'],
+    colors: ['#0c4a6e', '#0369a1', '#0284c7', '#164e63'],
     accent: '#38bdf8',
   },
   cloudy_night: {
     name: '夜云流影',
-    colors: ['#090d16', '#111827', '#1e293b', '#2e3d5b', '#3b5078'],
+    colors: ['#090d16', '#0f172a', '#1e293b', '#1e3a5f'],
     accent: '#94a3b8',
   },
   overcast: {
     name: '层云密布',
-    colors: ['#1e293b', '#334155', '#475569', '#64748b', '#94a3b8'],
+    colors: ['#1e293b', '#334155', '#334155', '#1e293b'],
     accent: '#cbd5e1',
   },
   rain: {
     name: '烟雨霏霏',
-    colors: ['#0c192c', '#152e4d', '#1d4ed8', '#2563eb', '#60a5fa'],
+    colors: ['#081c3b', '#0f2b48', '#1e3a5f', '#172554'],
     accent: '#60a5fa',
   },
   thunder: {
     name: '雷暴轰鸣',
-    colors: ['#050510', '#110e2e', '#241442', '#3b0764', '#581c87'],
+    colors: ['#050510', '#170c2e', '#2e1065', '#0f172a'],
     accent: '#a855f7',
   },
   snow: {
     name: '冬日飞雪',
-    colors: ['#1e293b', '#334155', '#475569', '#64748b', '#93c5fd', '#e2e8f0'],
+    colors: ['#0f172a', '#1e293b', '#334155', '#1e3a5f'],
     accent: '#e0f2fe',
   },
   fog: {
     name: '晨雾霭霭',
-    colors: ['#292524', '#44403c', '#57534e', '#78716c', '#a8a29e'],
+    colors: ['#1c1917', '#292524', '#44403c', '#1c1917'],
     accent: '#d6d3d1',
   },
 };
@@ -207,9 +207,15 @@ export default function WeatherBackground({
     }
   }, [isDay]);
 
+  const baseBgColor = themeColors && themeColors.length > 0 ? themeColors[0] : '#075985';
+  const webStyle = Platform.OS === 'web' ? {
+    backgroundImage: `linear-gradient(180deg, ${themeColors.join(', ')})`,
+    backgroundColor: baseBgColor,
+  } : null;
+
   return (
-    <View style={styles.container}>
-      {/* 渐变底色 */}
+    <View style={[styles.container, { backgroundColor: baseBgColor }, webStyle]}>
+      {/* 渐变底色 (原生与 Web 双轨保障，绝无白底) */}
       <LinearGradient
         colors={themeColors}
         start={{ x: 0.1, y: 0 }}

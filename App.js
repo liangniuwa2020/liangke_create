@@ -360,12 +360,16 @@ const styles = StyleSheet.create({
   quickBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: 'rgba(8, 16, 32, 0.65)',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 16,
     borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
   },
   quickBtnText: {
     fontSize: 13,

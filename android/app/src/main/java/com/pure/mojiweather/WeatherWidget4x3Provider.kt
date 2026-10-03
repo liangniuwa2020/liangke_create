@@ -85,6 +85,7 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
 
 
             var forecastArr: org.json.JSONArray? = null
+            var hourlyArr: org.json.JSONArray? = null
             if (!jsonStr.isNullOrEmpty()) {
                 try {
                     val json = JSONObject(jsonStr)
@@ -106,6 +107,7 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
                     updateTime = json.optString("updateTime", updateTime)
 
                     forecastArr = json.optJSONArray("forecast7d") ?: json.optJSONArray("forecast")
+                    hourlyArr = json.optJSONArray("hourly24")
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -125,11 +127,50 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_aqi_text, aqiText)
             views.setTextViewText(R.id.widget_wind_info, windInfo)
             views.setTextViewText(R.id.widget_humidity_info, humidityInfo)
-            views.setTextViewText(R.id.widget_air_desc, airDesc)
 
-            setWidgetIcon(context, views, R.id.widget_weather_icon, getWeatherIconRes(weatherType), 38)
+            setWidgetIcon(context, views, R.id.widget_weather_icon, getWeatherIconRes(weatherType), 30)
 
-            // 6. 绑定未来 7 天 (最近一周) 天气预报
+            // 6. 绑定下半部分第 1 排：间隔 2 小时的天气 (7 个节点: 0h, +2h, +4h, +6h, +8h, +10h, +12h)
+            val hourlyTimeIds = intArrayOf(
+                R.id.widget_h1_time, R.id.widget_h2_time, R.id.widget_h3_time,
+                R.id.widget_h4_time, R.id.widget_h5_time, R.id.widget_h6_time, R.id.widget_h7_time
+            )
+            val hourlyIconIds = intArrayOf(
+                R.id.widget_h1_icon, R.id.widget_h2_icon, R.id.widget_h3_icon,
+                R.id.widget_h4_icon, R.id.widget_h5_icon, R.id.widget_h6_icon, R.id.widget_h7_icon
+            )
+            val hourlyTempIds = intArrayOf(
+                R.id.widget_h1_temp, R.id.widget_h2_temp, R.id.widget_h3_temp,
+                R.id.widget_h4_temp, R.id.widget_h5_temp, R.id.widget_h6_temp, R.id.widget_h7_temp
+            )
+
+            val hourlyIndices = intArrayOf(0, 2, 4, 6, 8, 10, 12)
+            val defaultHourlyTimes = arrayOf("现在", "01:00", "03:00", "05:00", "07:00", "09:00", "11:00")
+            val defaultHourlyTemps = arrayOf("24°", "22°", "21°", "20°", "23°", "25°", "24°")
+            val defaultHourlyTypes = arrayOf("sunny", "cloudy", "cloudy", "sunny", "sunny", "sunny", "rain")
+
+            for (i in 0 until 7) {
+                var time = defaultHourlyTimes[i]
+                var temp = defaultHourlyTemps[i]
+                var type = defaultHourlyTypes[i]
+
+                val targetIdx = hourlyIndices[i]
+                if (hourlyArr != null && targetIdx < hourlyArr.length()) {
+                    val hObj = hourlyArr.optJSONObject(targetIdx)
+                    if (hObj != null) {
+                        time = hObj.optString("time", time)
+                        val tVal = hObj.optInt("temp", 24)
+                        temp = "$tVal°"
+                        type = hObj.optString("type", type)
+                    }
+                }
+
+                views.setTextViewText(hourlyTimeIds[i], time)
+                views.setTextViewText(hourlyTempIds[i], temp)
+                setWidgetIcon(context, views, hourlyIconIds[i], getWeatherIconRes(type), 18)
+            }
+
+            // 7. 绑定下半部分第 2 排：未来 7 天 (每天天气)
             val titleIds = intArrayOf(
                 R.id.widget_f1_title, R.id.widget_f2_title, R.id.widget_f3_title,
                 R.id.widget_f4_title, R.id.widget_f5_title, R.id.widget_f6_title, R.id.widget_f7_title
@@ -138,23 +179,17 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
                 R.id.widget_f1_icon, R.id.widget_f2_icon, R.id.widget_f3_icon,
                 R.id.widget_f4_icon, R.id.widget_f5_icon, R.id.widget_f6_icon, R.id.widget_f7_icon
             )
-            val descIds = intArrayOf(
-                R.id.widget_f1_desc, R.id.widget_f2_desc, R.id.widget_f3_desc,
-                R.id.widget_f4_desc, R.id.widget_f5_desc, R.id.widget_f6_desc, R.id.widget_f7_desc
-            )
             val tempIds = intArrayOf(
                 R.id.widget_f1_temp, R.id.widget_f2_temp, R.id.widget_f3_temp,
                 R.id.widget_f4_temp, R.id.widget_f5_temp, R.id.widget_f6_temp, R.id.widget_f7_temp
             )
 
             val defaultTitles = arrayOf("今天", "明天", "后天", "周二", "周三", "周四", "周五")
-            val defaultDescs = arrayOf("晴", "多云", "小雨", "阴", "晴", "中雨", "晴")
             val defaultTypes = arrayOf("sunny", "cloudy", "rain", "cloudy", "sunny", "rain", "sunny")
             val defaultTemps = arrayOf("26°/15°", "25°/14°", "23°/13°", "22°/12°", "24°/13°", "20°/11°", "23°/12°")
 
             for (i in 0 until 7) {
                 var title = defaultTitles[i]
-                var desc = defaultDescs[i]
                 var type = defaultTypes[i]
                 var temp = defaultTemps[i]
 
@@ -162,7 +197,6 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
                     val d = forecastArr.optJSONObject(i)
                     if (d != null) {
                         title = d.optString("title", title)
-                        desc = d.optString("desc", desc)
                         type = d.optString("type", type)
                         val max = d.optInt("maxTemp", 24)
                         val min = d.optInt("minTemp", 15)
@@ -171,9 +205,8 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
                 }
 
                 views.setTextViewText(titleIds[i], title)
-                views.setTextViewText(descIds[i], desc)
                 views.setTextViewText(tempIds[i], temp)
-                setWidgetIcon(context, views, iconIds[i], getWeatherIconRes(type), 22)
+                setWidgetIcon(context, views, iconIds[i], getWeatherIconRes(type), 18)
             }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)

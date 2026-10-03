@@ -5,23 +5,23 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_bg_4x3"
-    android:paddingLeft="12dp"
-    android:paddingRight="12dp"
-    android:paddingTop="10dp"
-    android:paddingBottom="10dp">
+    android:paddingLeft="10dp"
+    android:paddingRight="10dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
 
-    <!-- 1. 顶部栏：城市、定位、空气质量指标 与 当前气温、刷新 -->
+    <!-- 1. 顶部紧凑栏：城市、更新时间、AQI、当前气温、天气与刷新 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="8dp">
+        android:layout_marginBottom="4dp">
 
         <!-- 左侧：城市与更新时间 -->
         <ImageView
-            android:layout_width="13dp"
-            android:layout_height="13dp"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
             android:src="@drawable/ic_widget_location" />
 
         <TextView
@@ -29,37 +29,37 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="南昌"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
-            android:layout_marginLeft="4dp" />
+            android:layout_marginLeft="3dp" />
 
         <TextView
             android:id="@+id/widget_update_time"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="实时同步"
-            android:textSize="10sp"
+            android:textSize="9.5sp"
             android:textColor="#94A3B8"
-            android:layout_marginLeft="6dp" />
+            android:layout_marginLeft="5dp" />
 
         <LinearLayout
             android:id="@+id/widget_aqi_badge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="@drawable/widget_aqi_badge"
-            android:paddingLeft="5dp"
-            android:paddingRight="5dp"
+            android:paddingLeft="4dp"
+            android:paddingRight="4dp"
             android:paddingTop="1dp"
             android:paddingBottom="1dp"
-            android:layout_marginLeft="6dp">
+            android:layout_marginLeft="5dp">
 
             <TextView
                 android:id="@+id/widget_aqi_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="优 32"
-                android:textSize="9sp"
+                android:textSize="8.5sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF" />
         </LinearLayout>
@@ -73,8 +73,8 @@
         <!-- 当前实时气温与现象 -->
         <ImageView
             android:id="@+id/widget_weather_icon"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
             android:src="@drawable/ic_weather_sunny" />
 
         <TextView
@@ -82,395 +82,690 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="24°"
-            android:textSize="17sp"
+            android:textSize="15sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
-            android:layout_marginLeft="4dp" />
+            android:layout_marginLeft="3dp" />
 
         <TextView
             android:id="@+id/widget_weather_desc"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="晴朗"
-            android:textSize="11sp"
+            android:textSize="10.5sp"
             android:textColor="#38BDF8"
-            android:layout_marginLeft="4dp" />
+            android:layout_marginLeft="3dp" />
 
         <!-- 刷新按钮 -->
         <ImageView
             android:id="@+id/widget_btn_refresh"
-            android:layout_width="18dp"
-            android:layout_height="18dp"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
             android:src="@drawable/ic_widget_refresh"
             android:padding="1dp"
-            android:layout_marginLeft="8dp" />
+            android:layout_marginLeft="6dp" />
     </LinearLayout>
 
-    <!-- 2. 最近 24 小时逐时天气预报栏 (6个代表时间节点，铺满剩余高度) -->
+    <!-- 2. 下半部分双排气象看板：第一排 2小时逐时天气，第二排 每天天气 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:orientation="horizontal">
+        android:orientation="vertical">
 
-        <!-- 节点 1 (当前/现在) -->
+        <!-- 第 1 排：间隔 2 个小时的天气 (6 个时段) -->
         <LinearLayout
-            android:id="@+id/widget_hourly_slot1"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
             android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:background="@drawable/widget_forecast_col_bg"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:paddingLeft="1dp"
-            android:paddingRight="1dp"
-            android:layout_marginLeft="1dp"
-            android:layout_marginRight="1dp">
+            android:orientation="horizontal"
+            android:layout_marginBottom="2dp">
 
-            <TextView
-                android:id="@+id/widget_h1_time"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="现在"
-                android:textSize="10.5sp"
-                android:textStyle="bold"
-                android:textColor="#38BDF8" />
+            <!-- 逐时 1 (现在) -->
+            <LinearLayout
+                android:id="@+id/widget_hourly_slot1"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_forecast_col_bg"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:paddingLeft="1dp"
+                android:paddingRight="1dp"
+                android:layout_marginLeft="1dp"
+                android:layout_marginRight="1dp">
 
-            <FrameLayout
-                android:layout_width="1dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+                <TextView
+                    android:id="@+id/widget_h1_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="现在"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:textColor="#38BDF8" />
 
-            <ImageView
-                android:id="@+id/widget_h1_icon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@drawable/ic_weather_sunny" />
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
-            <FrameLayout
-                android:layout_width="1dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+                <ImageView
+                    android:id="@+id/widget_h1_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_weather_sunny" />
 
-            <TextView
-                android:id="@+id/widget_h1_temp"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="24°"
-                android:textSize="11.5sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF" />
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
-            <TextView
-                android:id="@+id/widget_h1_desc"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="晴"
-                android:textSize="9.5sp"
-                android:textColor="#CBD5E1"
-                android:layout_marginTop="1dp" />
+                <TextView
+                    android:id="@+id/widget_h1_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="24°"
+                    android:textSize="9.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+
+                <TextView
+                    android:id="@+id/widget_h1_desc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- 逐时 2 (+2h) -->
+            <LinearLayout
+                android:id="@+id/widget_hourly_slot2"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_forecast_col_bg"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:paddingLeft="1dp"
+                android:paddingRight="1dp"
+                android:layout_marginLeft="1dp"
+                android:layout_marginRight="1dp">
+
+                <TextView
+                    android:id="@+id/widget_h2_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="01:00"
+                    android:textSize="9sp"
+                    android:textColor="#E2E8F0" />
+
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <ImageView
+                    android:id="@+id/widget_h2_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_weather_cloudy" />
+
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/widget_h2_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="22°"
+                    android:textSize="9.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+
+                <TextView
+                    android:id="@+id/widget_h2_desc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- 逐时 3 (+4h) -->
+            <LinearLayout
+                android:id="@+id/widget_hourly_slot3"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_forecast_col_bg"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:paddingLeft="1dp"
+                android:paddingRight="1dp"
+                android:layout_marginLeft="1dp"
+                android:layout_marginRight="1dp">
+
+                <TextView
+                    android:id="@+id/widget_h3_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="03:00"
+                    android:textSize="9sp"
+                    android:textColor="#E2E8F0" />
+
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <ImageView
+                    android:id="@+id/widget_h3_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_weather_cloudy" />
+
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/widget_h3_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="20°"
+                    android:textSize="9.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+
+                <TextView
+                    android:id="@+id/widget_h3_desc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- 逐时 4 (+6h) -->
+            <LinearLayout
+                android:id="@+id/widget_hourly_slot4"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_forecast_col_bg"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:paddingLeft="1dp"
+                android:paddingRight="1dp"
+                android:layout_marginLeft="1dp"
+                android:layout_marginRight="1dp">
+
+                <TextView
+                    android:id="@+id/widget_h4_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="05:00"
+                    android:textSize="9sp"
+                    android:textColor="#E2E8F0" />
+
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <ImageView
+                    android:id="@+id/widget_h4_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_weather_sunny" />
+
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/widget_h4_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="25°"
+                    android:textSize="9.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+
+                <TextView
+                    android:id="@+id/widget_h4_desc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- 逐时 5 (+8h) -->
+            <LinearLayout
+                android:id="@+id/widget_hourly_slot5"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_forecast_col_bg"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:paddingLeft="1dp"
+                android:paddingRight="1dp"
+                android:layout_marginLeft="1dp"
+                android:layout_marginRight="1dp">
+
+                <TextView
+                    android:id="@+id/widget_h5_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="07:00"
+                    android:textSize="9sp"
+                    android:textColor="#E2E8F0" />
+
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <ImageView
+                    android:id="@+id/widget_h5_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_weather_sunny" />
+
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/widget_h5_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="27°"
+                    android:textSize="9.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+
+                <TextView
+                    android:id="@+id/widget_h5_desc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- 逐时 6 (+10h) -->
+            <LinearLayout
+                android:id="@+id/widget_hourly_slot6"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_forecast_col_bg"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:paddingLeft="1dp"
+                android:paddingRight="1dp"
+                android:layout_marginLeft="1dp"
+                android:layout_marginRight="1dp">
+
+                <TextView
+                    android:id="@+id/widget_h6_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="09:00"
+                    android:textSize="9sp"
+                    android:textColor="#E2E8F0" />
+
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <ImageView
+                    android:id="@+id/widget_h6_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_weather_rainy" />
+
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/widget_h6_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="23°"
+                    android:textSize="9.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+
+                <TextView
+                    android:id="@+id/widget_h6_desc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone" />
+            </LinearLayout>
         </LinearLayout>
 
-        <!-- 节点 2 (+4小时) -->
+        <!-- 第 2 排：未来 6 天 (每天天气) -->
         <LinearLayout
-            android:id="@+id/widget_hourly_slot2"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
             android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:background="@drawable/widget_forecast_col_bg"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:paddingLeft="1dp"
-            android:paddingRight="1dp"
-            android:layout_marginLeft="1dp"
-            android:layout_marginRight="1dp">
+            android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/widget_h2_time"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="01:00"
-                android:textSize="10.5sp"
-                android:textStyle="bold"
-                android:textColor="#E2E8F0" />
+            <!-- 预报 1 (今天) -->
+            <LinearLayout
+                android:id="@+id/widget_forecast_day1"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_forecast_col_bg"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:paddingLeft="1dp"
+                android:paddingRight="1dp"
+                android:layout_marginLeft="1dp"
+                android:layout_marginRight="1dp">
 
-            <FrameLayout
-                android:layout_width="1dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+                <TextView
+                    android:id="@+id/widget_f1_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="今天"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:textColor="#38BDF8" />
 
-            <ImageView
-                android:id="@+id/widget_h2_icon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@drawable/ic_weather_cloudy" />
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
-            <FrameLayout
-                android:layout_width="1dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+                <ImageView
+                    android:id="@+id/widget_f1_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_weather_sunny" />
 
-            <TextView
-                android:id="@+id/widget_h2_temp"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="22°"
-                android:textSize="11.5sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF" />
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
-            <TextView
-                android:id="@+id/widget_h2_desc"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="多云"
-                android:textSize="9.5sp"
-                android:textColor="#CBD5E1"
-                android:layout_marginTop="1dp" />
-        </LinearLayout>
+                <TextView
+                    android:id="@+id/widget_f1_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="26°/15°"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
 
-        <!-- 节点 3 (+8小时) -->
-        <LinearLayout
-            android:id="@+id/widget_hourly_slot3"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:background="@drawable/widget_forecast_col_bg"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:paddingLeft="1dp"
-            android:paddingRight="1dp"
-            android:layout_marginLeft="1dp"
-            android:layout_marginRight="1dp">
+            <!-- 预报 2 (明天) -->
+            <LinearLayout
+                android:id="@+id/widget_forecast_day2"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_forecast_col_bg"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:paddingLeft="1dp"
+                android:paddingRight="1dp"
+                android:layout_marginLeft="1dp"
+                android:layout_marginRight="1dp">
 
-            <TextView
-                android:id="@+id/widget_h3_time"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="05:00"
-                android:textSize="10.5sp"
-                android:textStyle="bold"
-                android:textColor="#E2E8F0" />
+                <TextView
+                    android:id="@+id/widget_f2_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="明天"
+                    android:textSize="9sp"
+                    android:textColor="#E2E8F0" />
 
-            <FrameLayout
-                android:layout_width="1dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
-            <ImageView
-                android:id="@+id/widget_h3_icon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@drawable/ic_weather_cloudy" />
+                <ImageView
+                    android:id="@+id/widget_f2_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_weather_cloudy" />
 
-            <FrameLayout
-                android:layout_width="1dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
-            <TextView
-                android:id="@+id/widget_h3_temp"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="20°"
-                android:textSize="11.5sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF" />
+                <TextView
+                    android:id="@+id/widget_f2_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="25°/14°"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
 
-            <TextView
-                android:id="@+id/widget_h3_desc"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="阴"
-                android:textSize="9.5sp"
-                android:textColor="#CBD5E1"
-                android:layout_marginTop="1dp" />
-        </LinearLayout>
+            <!-- 预报 3 (后天) -->
+            <LinearLayout
+                android:id="@+id/widget_forecast_day3"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_forecast_col_bg"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:paddingLeft="1dp"
+                android:paddingRight="1dp"
+                android:layout_marginLeft="1dp"
+                android:layout_marginRight="1dp">
 
-        <!-- 节点 4 (+12小时) -->
-        <LinearLayout
-            android:id="@+id/widget_hourly_slot4"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:background="@drawable/widget_forecast_col_bg"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:paddingLeft="1dp"
-            android:paddingRight="1dp"
-            android:layout_marginLeft="1dp"
-            android:layout_marginRight="1dp">
+                <TextView
+                    android:id="@+id/widget_f3_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="后天"
+                    android:textSize="9sp"
+                    android:textColor="#E2E8F0" />
 
-            <TextView
-                android:id="@+id/widget_h4_time"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="09:00"
-                android:textSize="10.5sp"
-                android:textStyle="bold"
-                android:textColor="#E2E8F0" />
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
-            <FrameLayout
-                android:layout_width="1dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+                <ImageView
+                    android:id="@+id/widget_f3_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_weather_rainy" />
 
-            <ImageView
-                android:id="@+id/widget_h4_icon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@drawable/ic_weather_sunny" />
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
-            <FrameLayout
-                android:layout_width="1dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+                <TextView
+                    android:id="@+id/widget_f3_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="23°/13°"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
 
-            <TextView
-                android:id="@+id/widget_h4_temp"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="25°"
-                android:textSize="11.5sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF" />
+            <!-- 预报 4 -->
+            <LinearLayout
+                android:id="@+id/widget_forecast_day4"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_forecast_col_bg"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:paddingLeft="1dp"
+                android:paddingRight="1dp"
+                android:layout_marginLeft="1dp"
+                android:layout_marginRight="1dp">
 
-            <TextView
-                android:id="@+id/widget_h4_desc"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="晴"
-                android:textSize="9.5sp"
-                android:textColor="#CBD5E1"
-                android:layout_marginTop="1dp" />
-        </LinearLayout>
+                <TextView
+                    android:id="@+id/widget_f4_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="周二"
+                    android:textSize="9sp"
+                    android:textColor="#E2E8F0" />
 
-        <!-- 节点 5 (+16小时) -->
-        <LinearLayout
-            android:id="@+id/widget_hourly_slot5"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:background="@drawable/widget_forecast_col_bg"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:paddingLeft="1dp"
-            android:paddingRight="1dp"
-            android:layout_marginLeft="1dp"
-            android:layout_marginRight="1dp">
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
-            <TextView
-                android:id="@+id/widget_h5_time"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="13:00"
-                android:textSize="10.5sp"
-                android:textStyle="bold"
-                android:textColor="#E2E8F0" />
+                <ImageView
+                    android:id="@+id/widget_f4_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_weather_cloudy" />
 
-            <FrameLayout
-                android:layout_width="1dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
-            <ImageView
-                android:id="@+id/widget_h5_icon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@drawable/ic_weather_sunny" />
+                <TextView
+                    android:id="@+id/widget_f4_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="22°/12°"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
 
-            <FrameLayout
-                android:layout_width="1dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+            <!-- 预报 5 -->
+            <LinearLayout
+                android:id="@+id/widget_forecast_day5"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_forecast_col_bg"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:paddingLeft="1dp"
+                android:paddingRight="1dp"
+                android:layout_marginLeft="1dp"
+                android:layout_marginRight="1dp">
 
-            <TextView
-                android:id="@+id/widget_h5_temp"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="27°"
-                android:textSize="11.5sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF" />
+                <TextView
+                    android:id="@+id/widget_f5_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="周三"
+                    android:textSize="9sp"
+                    android:textColor="#E2E8F0" />
 
-            <TextView
-                android:id="@+id/widget_h5_desc"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="晴"
-                android:textSize="9.5sp"
-                android:textColor="#CBD5E1"
-                android:layout_marginTop="1dp" />
-        </LinearLayout>
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
-        <!-- 节点 6 (+20小时) -->
-        <LinearLayout
-            android:id="@+id/widget_hourly_slot6"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:background="@drawable/widget_forecast_col_bg"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:paddingLeft="1dp"
-            android:paddingRight="1dp"
-            android:layout_marginLeft="1dp"
-            android:layout_marginRight="1dp">
+                <ImageView
+                    android:id="@+id/widget_f5_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_weather_sunny" />
 
-            <TextView
-                android:id="@+id/widget_h6_time"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="17:00"
-                android:textSize="10.5sp"
-                android:textStyle="bold"
-                android:textColor="#E2E8F0" />
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
-            <FrameLayout
-                android:layout_width="1dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+                <TextView
+                    android:id="@+id/widget_f5_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="24°/13°"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
 
-            <ImageView
-                android:id="@+id/widget_h6_icon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@drawable/ic_weather_rainy" />
+            <!-- 预报 6 -->
+            <LinearLayout
+                android:id="@+id/widget_forecast_day6"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_forecast_col_bg"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:paddingLeft="1dp"
+                android:paddingRight="1dp"
+                android:layout_marginLeft="1dp"
+                android:layout_marginRight="1dp">
 
-            <FrameLayout
-                android:layout_width="1dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+                <TextView
+                    android:id="@+id/widget_f6_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="周四"
+                    android:textSize="9sp"
+                    android:textColor="#E2E8F0" />
 
-            <TextView
-                android:id="@+id/widget_h6_temp"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="23°"
-                android:textSize="11.5sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF" />
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
-            <TextView
-                android:id="@+id/widget_h6_desc"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="小雨"
-                android:textSize="9.5sp"
-                android:textColor="#CBD5E1"
-                android:layout_marginTop="1dp" />
+                <ImageView
+                    android:id="@+id/widget_f6_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_weather_rainy" />
+
+                <FrameLayout
+                    android:layout_width="1dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/widget_f6_temp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="20°/11°"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

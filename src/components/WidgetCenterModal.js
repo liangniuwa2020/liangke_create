@@ -129,7 +129,28 @@ export default function WidgetCenterModal({
                   </Text>
                 </View>
 
-                {/* 最近一周7天天气趋势 */}
+                {/* 第 1 排：间隔 2 小时逐时预报 */}
+                <Text style={{ fontSize: 10, color: '#38bdf8', fontWeight: 'bold', marginTop: 4, marginBottom: 2 }}>逐时预报 · 间隔2小时</Text>
+                <View style={styles.w4x3ForecastRow}>
+                  {[
+                    { time: '现在', icon: 'sunny', color: '#f59e0b', temp: current.temp },
+                    { time: '01:00', icon: 'cloudy', color: '#38bdf8', temp: current.temp - 2 },
+                    { time: '03:00', icon: 'cloudy', color: '#94a3b8', temp: current.temp - 3 },
+                    { time: '05:00', icon: 'sunny', color: '#f59e0b', temp: current.temp - 4 },
+                    { time: '07:00', icon: 'sunny', color: '#f59e0b', temp: current.temp - 1 },
+                    { time: '09:00', icon: 'sunny', color: '#f59e0b', temp: current.temp + 2 },
+                    { time: '11:00', icon: 'rainy', color: '#60a5fa', temp: current.temp + 1 },
+                  ].map((item, idx) => (
+                    <View key={`4x3-h-${idx}`} style={[styles.w4x3DayCol, selectedStyle === 'white' && { backgroundColor: 'rgba(0,0,0,0.04)' }]}>
+                      <Text style={[styles.w4x3DayTitle, selectedStyle === 'white' && styles.textDarkSub]}>{item.time}</Text>
+                      <Ionicons name={item.icon} size={14} color={item.color} style={{ marginVertical: 1 }} />
+                      <Text style={[styles.w4x3DayTemp, selectedStyle === 'white' && styles.textDark]}>{item.temp}°</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* 第 2 排：未来 7 天天气预报 */}
+                <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: 'bold', marginTop: 6, marginBottom: 2 }}>未来预报 · 每天天气</Text>
                 <View style={styles.w4x3ForecastRow}>
                   {[
                     { day: '今天', icon: 'sunny', color: '#f59e0b', max: today.maxTemp, min: today.minTemp },
@@ -140,10 +161,10 @@ export default function WidgetCenterModal({
                     { day: '周四', icon: 'rainy', color: '#60a5fa', max: today.maxTemp - 4, min: today.minTemp - 4 },
                     { day: '周五', icon: 'sunny', color: '#f59e0b', max: today.maxTemp - 2, min: today.minTemp - 3 },
                   ].map((item, idx) => (
-                    <View key={idx} style={[styles.w4x3DayCol, selectedStyle === 'white' && { backgroundColor: 'rgba(0,0,0,0.04)' }]}>
+                    <View key={`4x3-f-${idx}`} style={[styles.w4x3DayCol, selectedStyle === 'white' && { backgroundColor: 'rgba(0,0,0,0.04)' }]}>
                       <Text style={[styles.w4x3DayTitle, selectedStyle === 'white' && styles.textDarkSub]}>{item.day}</Text>
-                      <Ionicons name={item.icon} size={15} color={item.color} style={{ marginVertical: 2 }} />
-                      <Text style={[styles.w4x3DayTemp, selectedStyle === 'white' && styles.textDark]}>{item.max}°/{item.min}°</Text>
+                      <Ionicons name={item.icon} size={14} color={item.color} style={{ marginVertical: 1 }} />
+                      <Text style={[styles.w4x3DayTemp, { fontSize: 8.5 }, selectedStyle === 'white' && styles.textDark]}>{item.max}°/{item.min}°</Text>
                     </View>
                   ))}
                 </View>
@@ -153,8 +174,8 @@ export default function WidgetCenterModal({
             {/* 微件 2：4x2 24小时逐时天气预报微件 */}
             <View style={styles.widgetPreviewSection}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>2. 4×2 24小时逐时天气微件</Text>
-                <Text style={[styles.sectionTag, { color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>全天逐时趋势</Text>
+                <Text style={styles.sectionTitle}>2. 4×2 双排综合天气微件</Text>
+                <Text style={[styles.sectionTag, { color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>逐时+逐日双排</Text>
               </View>
 
               <View
@@ -166,7 +187,7 @@ export default function WidgetCenterModal({
                 ]}
               >
                 {/* 顶栏：城市与当前气温 */}
-                <View style={[styles.w4x3Top, { marginBottom: 8 }]}>
+                <View style={[styles.w4x3Top, { marginBottom: 6 }]}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Ionicons name="location" size={13} color="#38bdf8" />
                     <Text style={[styles.w4x3City, selectedStyle === 'white' && styles.textDark]}>{city.name}</Text>
@@ -188,21 +209,38 @@ export default function WidgetCenterModal({
                   </View>
                 </View>
 
-                {/* 24小时逐时预报栏 */}
+                {/* 4x2 第 1 排：间隔 2 小时逐时预报 */}
+                <View style={[styles.w4x3ForecastRow, { marginBottom: 3 }]}>
+                  {[
+                    { time: '现在', icon: 'sunny', color: '#f59e0b', temp: current.temp },
+                    { time: '01:00', icon: 'cloudy', color: '#38bdf8', temp: current.temp - 2 },
+                    { time: '03:00', icon: 'cloudy', color: '#94a3b8', temp: current.temp - 4 },
+                    { time: '05:00', icon: 'sunny', color: '#f59e0b', temp: current.temp - 5 },
+                    { time: '07:00', icon: 'sunny', color: '#f59e0b', temp: current.temp - 1 },
+                    { time: '09:00', icon: 'rainy', color: '#60a5fa', temp: current.temp + 1 },
+                  ].map((item, idx) => (
+                    <View key={`4x2-h-${idx}`} style={[styles.w4x3DayCol, selectedStyle === 'white' && { backgroundColor: 'rgba(0,0,0,0.04)' }]}>
+                      <Text style={[styles.w4x3DayTitle, selectedStyle === 'white' && styles.textDarkSub]}>{item.time}</Text>
+                      <Ionicons name={item.icon} size={14} color={item.color} style={{ marginVertical: 1 }} />
+                      <Text style={[styles.w4x3DayTemp, selectedStyle === 'white' && styles.textDark]}>{item.temp}°</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* 4x2 第 2 排：未来每天天气 */}
                 <View style={styles.w4x3ForecastRow}>
                   {[
-                    { time: '现在', icon: 'sunny', color: '#f59e0b', temp: current.temp, desc: '晴' },
-                    { time: '01:00', icon: 'cloudy', color: '#38bdf8', temp: current.temp - 2, desc: '多云' },
-                    { time: '05:00', icon: 'cloudy', color: '#94a3b8', temp: current.temp - 4, desc: '阴' },
-                    { time: '09:00', icon: 'sunny', color: '#f59e0b', temp: current.temp + 1, desc: '晴' },
-                    { time: '13:00', icon: 'sunny', color: '#f59e0b', temp: current.temp + 3, desc: '晴' },
-                    { time: '17:00', icon: 'rainy', color: '#60a5fa', temp: current.temp - 1, desc: '小雨' },
+                    { day: '今天', icon: 'sunny', color: '#f59e0b', max: today.maxTemp, min: today.minTemp },
+                    { day: '明天', icon: 'cloudy', color: '#38bdf8', max: today.maxTemp - 1, min: today.minTemp - 1 },
+                    { day: '后天', icon: 'rainy', color: '#60a5fa', max: today.maxTemp - 2, min: today.minTemp - 2 },
+                    { day: '周二', icon: 'cloudy', color: '#94a3b8', max: today.maxTemp - 3, min: today.minTemp - 3 },
+                    { day: '周三', icon: 'sunny', color: '#f59e0b', max: today.maxTemp - 1, min: today.minTemp - 2 },
+                    { day: '周四', icon: 'rainy', color: '#60a5fa', max: today.maxTemp - 4, min: today.minTemp - 4 },
                   ].map((item, idx) => (
-                    <View key={idx} style={[styles.w4x3DayCol, selectedStyle === 'white' && { backgroundColor: 'rgba(0,0,0,0.04)' }]}>
-                      <Text style={[styles.w4x3DayTitle, selectedStyle === 'white' && styles.textDarkSub]}>{item.time}</Text>
-                      <Ionicons name={item.icon} size={15} color={item.color} style={{ marginVertical: 2 }} />
-                      <Text style={[styles.w4x3DayTemp, selectedStyle === 'white' && styles.textDark]}>{item.temp}°</Text>
-                      <Text style={[{ fontSize: 9, color: '#94a3b8', marginTop: 1 }, selectedStyle === 'white' && styles.textDarkSub]}>{item.desc}</Text>
+                    <View key={`4x2-f-${idx}`} style={[styles.w4x3DayCol, selectedStyle === 'white' && { backgroundColor: 'rgba(0,0,0,0.04)' }]}>
+                      <Text style={[styles.w4x3DayTitle, selectedStyle === 'white' && styles.textDarkSub]}>{item.day}</Text>
+                      <Ionicons name={item.icon} size={14} color={item.color} style={{ marginVertical: 1 }} />
+                      <Text style={[styles.w4x3DayTemp, { fontSize: 8.5 }, selectedStyle === 'white' && styles.textDark]}>{item.max}°/{item.min}°</Text>
                     </View>
                   ))}
                 </View>

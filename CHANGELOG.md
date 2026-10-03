@@ -1,5 +1,33 @@
 # 墨迹天气纯净版 (Moji Weather Pure) - 更新日志
 
+## [v1.1.3] - 2026-10-03
+### 📱 原生 Android 桌面小部件全面落地 (Native App Widgets)
+- **真机桌面长按即显 (System-level AppWidget)**：
+  - 接入标准 Android `AppWidgetProvider` 与 `RemoteViews` 架构；
+  - 在手机系统主屏幕空白处长按或双指捏合，点击【微件 / 小部件】即可直接找到【墨迹天气】添加到手机桌面！
+- **全新 4×3 综合天气时钟旗舰大微件 (4x3 Comprehensive Widget)**：
+  - **实时数字时钟与日期**：大字体系统实时走时钟表、星期几与城市地理定位；
+  - **实时天气大看板**：大号实时温度、精细矢量天气图标、体感温度、当日高低温差区间；
+  - **多维气象胶囊**：集成实时 AQI 空气质量评级徽章、风向风力与环境相对湿度；
+  - **未来 3 天气象趋势**：底部直观显示明天、后天、大后天的天气图标与温差预测；
+  - **一键点击交互**：点击时钟直接打开天气主页，点击刷新按钮立即静默同步最新天气。
+- **经典 4×2 墨迹翻牌时钟微件 (4x2 Classic Widget)**：
+  - 紧凑精致布局，左侧时间日期，右侧天气温标与空气质量胶囊。
+- **全自动跨端数据桥接 (React Native <-> Native Android SharedPreferences)**：
+  - App 每次更新气象数据时自动静默分发至桌面微件并触发即时刷新重绘。
+
+### 📦 安装包产物清单 (v1.1.3)
+- Android 手机安装包：
+  - [MojiWeather_v1.1.3.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather_v1.1.3.apk)
+  - [MojiWeather.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather.apk)
+  - [墨迹天气纯净版_v1.1.3.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/墨迹天气纯净版_v1.1.3.apk)
+- Windows 电脑端安装运行包：
+  - [MojiWeather_v1.1.3.exe](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather_v1.1.3.exe)
+  - [MojiWeather.exe](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather.exe)
+  - [墨迹天气纯净版_v1.1.3.exe](file:///E:/Antigravity%20ex_project/moji-weather-app/墨迹天气纯净版_v1.1.3.exe)
+
+---
+
 ## [v1.1.2] - 2026-10-03
 ### 🚀 启动崩溃排查与全架构兼容修复 (Critical Bugfix)
 - **修复离线 JS Bundle 打包缺失导致的启动崩溃**：

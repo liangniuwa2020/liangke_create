@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Dimensions,
+  NativeModules,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -93,6 +94,38 @@ export default function App() {
     try {
       const data = await fetchCompleteWeather(city.latitude, city.longitude);
       setWeatherData(data);
+
+      // 同步更新 Android 原生桌面小部件 (4x3 与 4x2)
+      if (NativeModules.WeatherWidgetModule && NativeModules.WeatherWidgetModule.updateWidgetData) {
+        try {
+          const forecastPayload = (data.daily || []).slice(1, 4).map(d => ({
+            title: d.displayDate,
+            desc: d.weather?.label || '晴',
+            type: d.weather?.type || 'sunny',
+            maxTemp: d.maxTemp,
+            minTemp: d.minTemp,
+          }));
+
+          const widgetPayload = {
+            city: city.name,
+            temp: data.current?.temp ?? 24,
+            weatherDesc: data.current?.weather?.label || '晴朗',
+            weatherType: data.current?.weather?.type || 'sunny',
+            maxTemp: data.today?.maxTemp ?? 26,
+            minTemp: data.today?.minTemp ?? 15,
+            aqi: data.aqi?.aqi || 32,
+            aqiLevel: data.aqi?.level || '优',
+            windInfo: `${data.current?.windDirection || '微风'} ${data.current?.windScale?.text || '2级'}`,
+            humidityInfo: `湿度 ${data.current?.humidity || 48}%`,
+            airDesc: data.aqi ? `空气质量${data.aqi.level}` : '体感舒适',
+            updateTime: data.current?.updateTime || '刚刚更新',
+            forecast: forecastPayload,
+          };
+          NativeModules.WeatherWidgetModule.updateWidgetData(JSON.stringify(widgetPayload));
+        } catch (we) {
+          console.log('Update widget error:', we);
+        }
+      }
     } catch (err) {
       console.error(err);
       setErrorMessage('网络连接异常或卫星数据同步超时，请点击重试');

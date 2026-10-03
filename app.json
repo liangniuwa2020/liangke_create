@@ -1,17 +1,19 @@
 {
   "expo": {
-    "name": "moji-weather-app",
+    "name": "墨迹纯净天气",
     "slug": "moji-weather-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pure.mojiweather"
     },
     "android": {
+      "package": "com.pure.mojiweather",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#2980b9",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

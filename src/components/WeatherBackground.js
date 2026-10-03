@@ -1,70 +1,89 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { getSkinConfig } from '../utils/themeContext';
 
 const { width, height } = Dimensions.get('window');
 
-// 各种天气对应的沉浸式墨迹风格渐变色系
+// 升级版：高透亮、鲜活沉浸的墨迹天空色系
 export const WEATHER_THEMES = {
   sunny_day: {
-    colors: ['#2980b9', '#3498db', '#5dade2', '#85c1e9'],
-    statusBarStyle: 'light',
+    colors: ['#0288d1', '#03a9f4', '#29b6f6', '#4fc3f7', '#81d4fa'],
+  },
+  sunset: {
+    colors: ['#2e1065', '#701a75', '#a21caf', '#c2410c', '#f59e0b', '#fde047'],
   },
   sunny_night: {
-    colors: ['#0b132b', '#1c2541', '#283c5e', '#3a506b'],
-    statusBarStyle: 'light',
+    // 璀璨夜空，拒绝死黑死灰，呈现深宝石蓝与月辉
+    colors: ['#0a1128', '#14213d', '#1f3160', '#2d427d', '#3f5799'],
   },
   cloudy_day: {
-    colors: ['#2c3e50', '#34495e', '#4a6572', '#5d7685'],
-    statusBarStyle: 'light',
+    colors: ['#1e3c72', '#2a5298', '#3b6998', '#5482a9', '#74b9ff'],
   },
   cloudy_night: {
-    colors: ['#131a28', '#1a233a', '#222d48', '#2d3b5d'],
-    statusBarStyle: 'light',
+    colors: ['#0f172a', '#1e293b', '#2e3d5b', '#3e527a'],
   },
   overcast: {
-    colors: ['#37474f', '#455a64', '#546e7a', '#607d8b'],
-    statusBarStyle: 'light',
+    colors: ['#253342', '#33475b', '#486581', '#627d98'],
   },
   rain: {
-    colors: ['#1a2a3a', '#20364f', '#2c4763', '#3d5c7e'],
-    statusBarStyle: 'light',
+    colors: ['#14243b', '#1e3c72', '#2a5298', '#3867d6'],
   },
   thunder: {
-    colors: ['#0d131f', '#161e31', '#1f2a44', '#2d2e46'],
-    statusBarStyle: 'light',
+    colors: ['#0f172a', '#1e1b4b', '#312e81', '#4338ca'],
   },
   snow: {
-    colors: ['#2c3e50', '#3e5871', '#54728c', '#839baf'],
-    statusBarStyle: 'light',
+    colors: ['#283c50', '#3b5998', '#54728c', '#83a4d4', '#b6fbff'],
   },
   fog: {
-    colors: ['#3e4a52', '#4f5d66', '#62727b', '#788992'],
-    statusBarStyle: 'light',
+    colors: ['#334155', '#475569', '#64748b', '#829ab1'],
   },
 };
 
-export default function WeatherBackground({ weatherType = 'sunny', isDay = true, children }) {
-  let themeKey = 'sunny_day';
-  if (weatherType === 'rain') {
-    themeKey = 'rain';
-  } else if (weatherType === 'thunder') {
-    themeKey = 'thunder';
-  } else if (weatherType === 'snow') {
-    themeKey = 'snow';
-  } else if (weatherType === 'fog') {
-    themeKey = 'fog';
-  } else if (weatherType === 'overcast') {
-    themeKey = 'overcast';
-  } else if (weatherType === 'cloudy') {
-    themeKey = isDay ? 'cloudy_day' : 'cloudy_night';
+export default function WeatherBackground({
+  weatherType = 'sunny',
+  isDay = true,
+  skinId = 'auto',
+  children,
+}) {
+  // 检查是否应用了用户自选皮肤
+  const activeSkin = getSkinConfig(skinId);
+  const isCustomSkin = activeSkin && activeSkin.id !== 'auto' && activeSkin.colors;
+
+  // 判断是否处于日落黄昏时间段 (17:20 - 19:15)
+  const currentHour = new Date().getHours();
+  const currentMinute = new Date().getMinutes();
+  const isSunsetTime = (currentHour === 17 && currentMinute >= 20) || currentHour === 18 || (currentHour === 19 && currentMinute <= 15);
+
+  let themeColors;
+  if (isCustomSkin) {
+    themeColors = activeSkin.colors;
   } else {
-    themeKey = isDay ? 'sunny_day' : 'sunny_night';
+    let themeKey = 'sunny_day';
+    if (weatherType === 'rain') {
+      themeKey = 'rain';
+    } else if (weatherType === 'thunder') {
+      themeKey = 'thunder';
+    } else if (weatherType === 'snow') {
+      themeKey = 'snow';
+    } else if (weatherType === 'fog') {
+      themeKey = 'fog';
+    } else if (weatherType === 'overcast') {
+      themeKey = 'overcast';
+    } else if (weatherType === 'cloudy') {
+      themeKey = isDay ? 'cloudy_day' : 'cloudy_night';
+    } else {
+      if (isSunsetTime) {
+        themeKey = 'sunset';
+      } else {
+        themeKey = isDay ? 'sunny_day' : 'sunny_night';
+      }
+    }
+    themeColors = (WEATHER_THEMES[themeKey] || WEATHER_THEMES.sunny_day).colors;
   }
 
-  const currentTheme = WEATHER_THEMES[themeKey] || WEATHER_THEMES.sunny_day;
-
-  // 雨滴或雪花动画
+  // 雨滴动画
   const dropAnims = useRef([
     new Animated.Value(0),
     new Animated.Value(0),
@@ -81,10 +100,10 @@ export default function WeatherBackground({ weatherType = 'sunny', isDay = true,
       const animations = dropAnims.map((anim, index) => {
         return Animated.loop(
           Animated.sequence([
-            Animated.delay(index * 220),
+            Animated.delay(index * 200),
             Animated.timing(anim, {
               toValue: 1,
-              duration: weatherType === 'rain' ? 850 : 2200,
+              duration: weatherType === 'rain' ? 850 : 2300,
               useNativeDriver: true,
             }),
           ])
@@ -94,40 +113,82 @@ export default function WeatherBackground({ weatherType = 'sunny', isDay = true,
     }
   }, [weatherType]);
 
-  // 星光微光闪烁动画 (夜间晴天)
-  const starGlow = useRef(new Animated.Value(0.4)).current;
+  // 太阳/光晕呼吸动画 (晴天白天)
+  const sunPulse = useRef(new Animated.Value(0.85)).current;
   useEffect(() => {
-    if (!isDay && weatherType === 'sunny') {
+    if (isDay && weatherType === 'sunny') {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(starGlow, { toValue: 1, duration: 2000, useNativeDriver: true }),
-          Animated.timing(starGlow, { toValue: 0.3, duration: 2000, useNativeDriver: true }),
+          Animated.timing(sunPulse, { toValue: 1.15, duration: 3000, useNativeDriver: true }),
+          Animated.timing(sunPulse, { toValue: 0.85, duration: 3000, useNativeDriver: true }),
         ])
       ).start();
     }
   }, [isDay, weatherType]);
 
+  // 星光微光闪烁动画 (夜间)
+  const starGlow = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    if (!isDay) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(starGlow, { toValue: 1, duration: 2200, useNativeDriver: true }),
+          Animated.timing(starGlow, { toValue: 0.35, duration: 2200, useNativeDriver: true }),
+        ])
+      ).start();
+    }
+  }, [isDay]);
+
   return (
     <View style={styles.container}>
+      {/* 渐变底色 */}
       <LinearGradient
-        colors={currentTheme.colors}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
+        colors={themeColors}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
+
+      {/* 晴天白天：动态太阳与光晕渲染 */}
+      {isDay && weatherType === 'sunny' && (
+        <View pointerEvents="none" style={styles.sunContainer}>
+          <Animated.View style={[styles.sunGlow, { transform: [{ scale: sunPulse }] }]} />
+          <View style={styles.sunCore} />
+        </View>
+      )}
+
+      {/* 晴朗夜空：明月与璀璨星宿 */}
+      {!isDay && (
+        <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+          {/* 月亮 */}
+          <View style={styles.moonContainer}>
+            <Ionicons name="moon" size={38} color="#fef08a" style={styles.moonIcon} />
+            <View style={styles.moonHalo} />
+          </View>
+          {/* 星星 */}
+          <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: starGlow }]}>
+            <View style={[styles.star, { top: 70, left: 60, width: 3, height: 3 }]} />
+            <View style={[styles.star, { top: 110, right: 100, width: 2, height: 2 }]} />
+            <View style={[styles.star, { top: 140, left: 160, width: 4, height: 4, borderRadius: 2 }]} />
+            <View style={[styles.star, { top: 210, right: 50, width: 3, height: 3 }]} />
+            <View style={[styles.star, { top: 290, left: 80, width: 2, height: 2 }]} />
+            <View style={[styles.star, { top: 360, right: 120, width: 3, height: 3 }]} />
+          </Animated.View>
+        </View>
+      )}
 
       {/* 雨天动态雨丝粒子效果 */}
       {weatherType === 'rain' && (
         <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
           {dropAnims.map((anim, idx) => {
-            const leftPos = (width / 8) * idx + 12;
+            const leftPos = (width / 8) * idx + 14;
             const translateY = anim.interpolate({
               inputRange: [0, 1],
               outputRange: [-30, height],
             });
             const opacity = anim.interpolate({
               inputRange: [0, 0.1, 0.85, 1],
-              outputRange: [0, 0.6, 0.6, 0],
+              outputRange: [0, 0.65, 0.65, 0],
             });
             return (
               <Animated.View
@@ -157,7 +218,7 @@ export default function WeatherBackground({ weatherType = 'sunny', isDay = true,
             });
             const opacity = anim.interpolate({
               inputRange: [0, 0.15, 0.85, 1],
-              outputRange: [0, 0.75, 0.75, 0],
+              outputRange: [0, 0.8, 0.8, 0],
             });
             return (
               <Animated.View
@@ -176,17 +237,6 @@ export default function WeatherBackground({ weatherType = 'sunny', isDay = true,
         </View>
       )}
 
-      {/* 夜间星光点缀效果 */}
-      {!isDay && weatherType === 'sunny' && (
-        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { opacity: starGlow }]}>
-          <View style={[styles.star, { top: 80, left: 60, width: 3, height: 3 }]} />
-          <View style={[styles.star, { top: 120, right: 80, width: 2, height: 2 }]} />
-          <View style={[styles.star, { top: 160, left: 180, width: 4, height: 4 }]} />
-          <View style={[styles.star, { top: 220, right: 40, width: 3, height: 3 }]} />
-          <View style={[styles.star, { top: 300, left: 90, width: 2, height: 2 }]} />
-        </Animated.View>
-      )}
-
       {children}
     </View>
   );
@@ -196,12 +246,57 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  sunContainer: {
+    position: 'absolute',
+    top: 30,
+    right: 30,
+    width: 120,
+    height: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sunGlow: {
+    position: 'absolute',
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(254, 240, 138, 0.25)',
+  },
+  sunCore: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#fde047',
+    shadowColor: '#facc15',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 20,
+  },
+  moonContainer: {
+    position: 'absolute',
+    top: 40,
+    right: 40,
+    width: 70,
+    height: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  moonIcon: {
+    transform: [{ rotate: '-15deg' }],
+  },
+  moonHalo: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(254, 240, 138, 0.15)',
+  },
   rainDrop: {
     position: 'absolute',
     top: 0,
     width: 2,
-    height: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    height: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.55)',
     borderRadius: 1,
   },
   snowFlake: {
@@ -209,7 +304,7 @@ const styles = StyleSheet.create({
     top: 0,
     width: 6,
     height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 3,
   },
   star: {

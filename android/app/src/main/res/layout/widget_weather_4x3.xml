@@ -39,7 +39,7 @@
             android:textColor="#94A3B8"
             android:layout_marginStart="6dp" />
 
-        <View
+        <FrameLayout
             android:layout_width="0dp"
             android:layout_height="1dp"
             android:layout_weight="1" />
@@ -156,8 +156,10 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="@drawable/widget_pill_bg"
-        android:paddingVertical="5dp"
-        android:paddingHorizontal="10dp"
+        android:paddingTop="5dp"
+        android:paddingBottom="5dp"
+        android:paddingLeft="10dp"
+        android:paddingRight="10dp"
         android:layout_marginBottom="8dp">
 
         <LinearLayout
@@ -165,8 +167,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="@drawable/widget_aqi_badge"
-            android:paddingHorizontal="6dp"
-            android:paddingVertical="2dp">
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp">
 
             <TextView
                 android:id="@+id/widget_aqi_text"
@@ -222,7 +226,8 @@
             android:orientation="vertical"
             android:gravity="center"
             android:background="@drawable/widget_forecast_col_bg"
-            android:paddingVertical="6dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
             android:layout_marginEnd="3dp">
 
             <TextView
@@ -238,7 +243,8 @@
                 android:layout_width="22dp"
                 android:layout_height="22dp"
                 android:src="@drawable/ic_weather_sunny"
-                android:layout_marginVertical="3dp" />
+                android:layout_marginTop="3dp"
+                android:layout_marginBottom="3dp" />
 
             <TextView
                 android:id="@+id/widget_f1_desc"
@@ -268,8 +274,10 @@
             android:orientation="vertical"
             android:gravity="center"
             android:background="@drawable/widget_forecast_col_bg"
-            android:paddingVertical="6dp"
-            android:layout_marginHorizontal="3dp">
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:layout_marginLeft="3dp"
+            android:layout_marginRight="3dp">
 
             <TextView
                 android:id="@+id/widget_f2_title"
@@ -284,7 +292,8 @@
                 android:layout_width="22dp"
                 android:layout_height="22dp"
                 android:src="@drawable/ic_weather_cloudy"
-                android:layout_marginVertical="3dp" />
+                android:layout_marginTop="3dp"
+                android:layout_marginBottom="3dp" />
 
             <TextView
                 android:id="@+id/widget_f2_desc"
@@ -314,7 +323,8 @@
             android:orientation="vertical"
             android:gravity="center"
             android:background="@drawable/widget_forecast_col_bg"
-            android:paddingVertical="6dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
             android:layout_marginStart="3dp">
 
             <TextView
@@ -330,7 +340,8 @@
                 android:layout_width="22dp"
                 android:layout_height="22dp"
                 android:src="@drawable/ic_weather_rainy"
-                android:layout_marginVertical="3dp" />
+                android:layout_marginTop="3dp"
+                android:layout_marginBottom="3dp" />
 
             <TextView
                 android:id="@+id/widget_f3_desc"

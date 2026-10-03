@@ -68,7 +68,7 @@ export default function AboutCleanModal({ visible, onClose }) {
             ))}
 
             <View style={styles.versionCard}>
-              <Text style={styles.versionTitle}>版本信息：v1.1.3 (原生 4×3/4×2 桌面微件版)</Text>
+              <Text style={styles.versionTitle}>版本信息：v1.1.4 (GPS 街道级定位 & 桌面微件修复版)</Text>
               <Text style={styles.versionSub}>专为追求清爽体验的用户量身定制</Text>
             </View>
           </ScrollView>

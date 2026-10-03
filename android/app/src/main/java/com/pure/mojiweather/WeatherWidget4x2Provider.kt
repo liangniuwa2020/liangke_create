@@ -6,6 +6,10 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import androidx.core.content.ContextCompat
+import android.util.Log
 import android.widget.RemoteViews
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -104,9 +108,28 @@ class WeatherWidget4x2Provider : AppWidgetProvider() {
                 "thunder" -> R.drawable.ic_weather_thunder
                 else -> R.drawable.ic_weather_sunny
             }
-            views.setImageViewResource(R.id.widget_weather_icon, iconRes)
+            setWidgetIcon(context, views, R.id.widget_weather_icon, iconRes, 30)
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
+        }
+
+        private fun setWidgetIcon(context: Context, views: RemoteViews, viewId: Int, resId: Int, sizeDp: Int = 30) {
+            try {
+                val drawable = ContextCompat.getDrawable(context, resId)
+                if (drawable != null) {
+                    val density = context.resources.displayMetrics.density
+                    val sizePx = (sizeDp * density).toInt().coerceAtLeast(1)
+                    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+                    val canvas = Canvas(bitmap)
+                    drawable.setBounds(0, 0, canvas.width, canvas.height)
+                    drawable.draw(canvas)
+                    views.setImageViewBitmap(viewId, bitmap)
+                    return
+                }
+            } catch (e: Exception) {
+                Log.e("WeatherWidget4x2", "Failed to render icon to bitmap", e)
+            }
+            views.setImageViewResource(viewId, resId)
         }
     }
 }

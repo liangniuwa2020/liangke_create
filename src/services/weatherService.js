@@ -2,6 +2,7 @@
 
 // 常用默认热门城市
 export const DEFAULT_CITIES = [
+  { id: 'nanchang', name: '南昌', admin1: '江西省', country: '中国', latitude: 28.6829, longitude: 115.8906 },
   { id: 'beijing', name: '北京', admin1: '北京市', country: '中国', latitude: 39.9042, longitude: 116.4074 },
   { id: 'shanghai', name: '上海', admin1: '上海市', country: '中国', latitude: 31.2304, longitude: 121.4737 },
   { id: 'guangzhou', name: '广州', admin1: '广东省', country: '中国', latitude: 23.1291, longitude: 113.2644 },

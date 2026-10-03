@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { searchCities, DEFAULT_CITIES } from '../services/weatherService';
+import { getAutoCurrentLocation } from '../services/locationService';
 
 export default function CityManageModal({
   visible,
@@ -48,6 +49,24 @@ export default function CityManageModal({
 
     return () => clearTimeout(timer);
   }, [keyword]);
+
+  const [isLocating, setIsLocating] = useState(false);
+
+  const handleTriggerGps = async () => {
+    setIsLocating(true);
+    try {
+      const loc = await getAutoCurrentLocation();
+      if (loc) {
+        onAddCity(loc);
+        onSelectCity(loc);
+        onClose();
+      }
+    } catch (e) {
+      console.warn('GPS failed:', e);
+    } finally {
+      setIsLocating(false);
+    }
+  };
 
   const handleSelectSearchResult = (city) => {
     onAddCity(city);
@@ -126,6 +145,29 @@ export default function CityManageModal({
               )}
             />
           </View>
+        )}
+
+        {/* GPS 自动定位按钮 */}
+        {searchResults.length === 0 && (
+          <TouchableOpacity
+            style={styles.gpsLocateBtn}
+            onPress={handleTriggerGps}
+            activeOpacity={0.8}
+            disabled={isLocating}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="navigate-circle" size={26} color="#38bdf8" />
+              <View style={{ marginLeft: 10 }}>
+                <Text style={styles.gpsBtnTitle}>点击开启 GPS 智能精确定位</Text>
+                <Text style={styles.gpsBtnSub}>自动确定所在城市、区县及周边街道</Text>
+              </View>
+            </View>
+            {isLocating ? (
+              <ActivityIndicator size="small" color="#38bdf8" />
+            ) : (
+              <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+            )}
+          </TouchableOpacity>
         )}
 
         {/* 热门城市快捷标签 */}
@@ -247,6 +289,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#374151',
     marginBottom: 16,
+  },
+  gpsLocateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    marginBottom: 16,
+  },
+  gpsBtnTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#38bdf8',
+  },
+  gpsBtnSub: {
+    fontSize: 10,
+    color: '#94a3b8',
+    marginTop: 2,
   },
   searchIcon: {
     marginRight: 8,

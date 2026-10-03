@@ -19,6 +19,7 @@ import {
   DEFAULT_CITIES,
   fetchCompleteWeather,
 } from './src/services/weatherService';
+import { getAutoCurrentLocation } from './src/services/locationService';
 import {
   loadSelectedSkin,
   saveSelectedSkin,
@@ -40,9 +41,23 @@ import WidgetCenterModal from './src/components/WidgetCenterModal';
 const STORAGE_SAVED_CITIES_KEY = '@pure_moji_weather_saved_cities';
 const STORAGE_CURRENT_CITY_KEY = '@pure_moji_weather_current_city';
 
+// 默认高精度南昌基准点
+const NANCHANG_DEFAULT = {
+  id: 'nanchang_gps',
+  name: '南昌市',
+  city: '南昌',
+  district: '',
+  street: '',
+  admin1: '江西省',
+  country: '中国',
+  latitude: 28.6829,
+  longitude: 115.8906,
+  isGps: true,
+};
+
 export default function App() {
-  const [currentCity, setCurrentCity] = useState(DEFAULT_CITIES[0]);
-  const [savedCities, setSavedCities] = useState(DEFAULT_CITIES.slice(0, 6));
+  const [currentCity, setCurrentCity] = useState(NANCHANG_DEFAULT);
+  const [savedCities, setSavedCities] = useState([NANCHANG_DEFAULT, ...DEFAULT_CITIES.slice(0, 5)]);
   const [currentSkinId, setCurrentSkinId] = useState('auto');
   const [weatherData, setWeatherData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,7 +69,22 @@ export default function App() {
   const [isSkinModalVisible, setIsSkinModalVisible] = useState(false);
   const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
 
-  // 初始化加载持久化城市数据与选中的皮肤
+  // 自动根据 GPS / 网络高精度定位当前位置
+  const autoDetectLocation = useCallback(async (isSilent = false) => {
+    try {
+      const loc = await getAutoCurrentLocation();
+      if (loc && loc.latitude && loc.longitude) {
+        setCurrentCity(loc);
+        AsyncStorage.setItem(STORAGE_CURRENT_CITY_KEY, JSON.stringify(loc)).catch(console.error);
+        return loc;
+      }
+    } catch (err) {
+      console.warn('Auto GPS location failed:', err);
+    }
+    return null;
+  }, []);
+
+  // 初始化加载持久化城市数据与选中的皮肤，并自动执行 GPS 定位
   useEffect(() => {
     async function loadInitialData() {
       try {
@@ -79,12 +109,15 @@ export default function App() {
         if (storedSkin) {
           setCurrentSkinId(storedSkin);
         }
+
+        // 每次打开软件，自动根据 GPS 获取高精度当前位置并更新天气
+        autoDetectLocation(true);
       } catch (err) {
         console.error('Failed to load storage:', err);
       }
     }
     loadInitialData();
-  }, []);
+  }, [autoDetectLocation]);
 
   // 加载天气数据
   const loadWeather = useCallback(async (city, showLoadingIndicator = true) => {
@@ -142,11 +175,22 @@ export default function App() {
     }
   }, [currentCity, loadWeather]);
 
-  // 下拉刷新
-  const handleRefresh = useCallback(() => {
+  // 下拉刷新 (如果是 GPS 定位，同时重新扫描高精度 GPS 与当前街道)
+  const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    loadWeather(currentCity, false);
-  }, [currentCity, loadWeather]);
+    let targetCity = currentCity;
+    if (currentCity?.isGps) {
+      try {
+        const freshLoc = await autoDetectLocation(true);
+        if (freshLoc) {
+          targetCity = freshLoc;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    loadWeather(targetCity, false);
+  }, [currentCity, autoDetectLocation, loadWeather]);
 
   // 切换选中城市
   const handleSelectCity = (city) => {

@@ -20,14 +20,24 @@ export default function HeaderBar({
         onPress={onOpenCityModal}
         activeOpacity={0.7}
       >
-        <Ionicons name="location-sharp" size={20} color="#ffffff" style={styles.iconPin} />
-        <View>
+        <Ionicons
+          name="location-sharp"
+          size={20}
+          color={city.isGps ? "#38bdf8" : "#ffffff"}
+          style={styles.iconPin}
+        />
+        <View style={{ flex: 1 }}>
           <View style={styles.cityNameRow}>
-            <Text style={styles.cityName}>{city.name}</Text>
+            <Text style={styles.cityName} numberOfLines={1}>{city.name}</Text>
+            {city.isGps && (
+              <View style={styles.gpsBadge}>
+                <Text style={styles.gpsBadgeText}>GPS</Text>
+              </View>
+            )}
             <Ionicons name="chevron-down" size={16} color="rgba(255, 255, 255, 0.9)" style={styles.chevron} />
           </View>
-          <Text style={styles.citySub}>
-            {city.admin1 && city.admin1 !== city.name ? `${city.admin1} · ` : ''}
+          <Text style={styles.citySub} numberOfLines={1}>
+            {city.street ? `${city.street} · ` : city.district ? `${city.district} · ` : (city.admin1 && !city.name.includes(city.admin1) ? `${city.admin1} · ` : '')}
             {updateTime ? `${updateTime} 更新` : '同步中...'}
           </Text>
         </View>
@@ -108,6 +118,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
     letterSpacing: 0.5,
+    maxWidth: 180,
+  },
+  gpsBadge: {
+    backgroundColor: '#0284c7',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginLeft: 6,
+  },
+  gpsBadgeText: {
+    fontSize: 9,
+    color: '#ffffff',
+    fontWeight: '800',
   },
   chevron: {
     marginLeft: 4,

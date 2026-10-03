@@ -97,11 +97,21 @@ export default function DailyDetailModal({ visible, onClose, day, allDays = [], 
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          activeOpacity={1}
+        />
         <View style={styles.sheet}>
           {/* 顶部渐变卡：日期 + 天气 + 温度 */}
           <LinearGradient colors={gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroCard}>
             {/* 关闭按钮 */}
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={onClose}
+              activeOpacity={0.7}
+              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+            >
               <Ionicons name="close" size={20} color="rgba(255,255,255,0.9)" />
             </TouchableOpacity>
 

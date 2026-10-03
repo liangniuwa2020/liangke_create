@@ -84,6 +84,7 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
             var updateTime = SimpleDateFormat("HH:mm 更新", Locale.CHINA).format(Date())
 
 
+            var forecastArr: org.json.JSONArray? = null
             if (!jsonStr.isNullOrEmpty()) {
                 try {
                     val json = JSONObject(jsonStr)
@@ -103,6 +104,12 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
                     humidityInfo = json.optString("humidityInfo", humidityInfo)
                     airDesc = json.optString("airDesc", airDesc)
                     updateTime = json.optString("updateTime", updateTime)
+
+                    forecastArr = json.optJSONArray("forecast7d") ?: json.optJSONArray("forecast")
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
 
             // 4. 计算当前中文日期
             val dateFmt = SimpleDateFormat("M月d日 E", Locale.CHINA)
@@ -144,16 +151,6 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
             val defaultDescs = arrayOf("晴", "多云", "小雨", "阴", "晴", "中雨", "晴")
             val defaultTypes = arrayOf("sunny", "cloudy", "rain", "cloudy", "sunny", "rain", "sunny")
             val defaultTemps = arrayOf("26°/15°", "25°/14°", "23°/13°", "22°/12°", "24°/13°", "20°/11°", "23°/12°")
-
-            var forecastArr: org.json.JSONArray? = null
-            if (!jsonStr.isNullOrEmpty()) {
-                try {
-                    val json = JSONObject(jsonStr)
-                    forecastArr = json.optJSONArray("forecast7d") ?: json.optJSONArray("forecast")
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
 
             for (i in 0 until 7) {
                 var title = defaultTitles[i]

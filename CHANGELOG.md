@@ -1,5 +1,31 @@
 # 墨迹天气纯净版 (Moji Weather Pure) - 更新日志
 
+## [v1.1.4] - 2026-10-03
+### 🛠️ 桌面小部件“无法加载”根因修复 (RemoteViews Crash Fix)
+- **根除 RemoteViews XML 非法标签与属性导致微件加载失败的问题**：
+  - 彻底将小部件布局文件中的非法 `<View>` 标签替换为安全 `@RemoteView` 容器 `<FrameLayout>`，解决安卓启动器解析抛出 `InflateException: Class not allowed to be inflated` 导致的灰屏/无法加载；
+  - 将所有高版本专属 padding/margin 属性降级为全安卓版本通用的基础边距属性；
+  - 升级图标动态绘制机制：在 Kotlin 底层通过 `Bitmap` 直接进行内存绘制传递，避免手机桌面 Launcher 对 VectorDrawable 矢量图解析异常。
+
+### 📍 高精度 GPS / 网络自动定位与街道级识别 (High-Precision Geolocation)
+- **软件启动自动定位**：
+  - 打开 App 时自动调起 GPS 与网络高精度定位，实时精准识别用户所在城市（如默认精准定位南昌市）；
+  - 引入高精度逆地理编码（Geocoder + Nominatim），定位粒度深度细化至“区县·街道/商圈/标志地标”（如“南昌·东湖区 阳明路” / “南昌·八一广场”）；
+  - 下拉刷新自动重新扫描当前 GPS 定位与微气象；
+  - 城市管理页提供显目的【GPS 智能精确定位】入口，一键重新定位并加入关注列表。
+
+### 📦 安装包产物清单 (v1.1.4)
+- Android 手机安装包：
+  - [MojiWeather_v1.1.4.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather_v1.1.4.apk)
+  - [MojiWeather.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather.apk)
+  - [墨迹天气纯净版_v1.1.4.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/墨迹天气纯净版_v1.1.4.apk)
+- Windows 电脑端安装运行包：
+  - [MojiWeather_v1.1.4.exe](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather_v1.1.4.exe)
+  - [MojiWeather.exe](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather.exe)
+  - [墨迹天气纯净版_v1.1.4.exe](file:///E:/Antigravity%20ex_project/moji-weather-app/墨迹天气纯净版_v1.1.4.exe)
+
+---
+
 ## [v1.1.3] - 2026-10-03
 ### 📱 原生 Android 桌面小部件全面落地 (Native App Widgets)
 - **真机桌面长按即显 (System-level AppWidget)**：

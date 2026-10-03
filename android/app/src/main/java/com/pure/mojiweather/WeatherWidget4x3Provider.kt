@@ -6,6 +6,10 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import androidx.core.content.ContextCompat
+import android.util.Log
 import android.widget.RemoteViews
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -156,27 +160,46 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_humidity_info, humidityInfo)
             views.setTextViewText(R.id.widget_air_desc, airDesc)
 
-            views.setImageViewResource(R.id.widget_weather_icon, getWeatherIconRes(weatherType))
+            setWidgetIcon(context, views, R.id.widget_weather_icon, getWeatherIconRes(weatherType), 38)
 
             // 预报 Day 1
             views.setTextViewText(R.id.widget_f1_title, f1Title)
             views.setTextViewText(R.id.widget_f1_desc, f1Desc)
             views.setTextViewText(R.id.widget_f1_temp, f1Temp)
-            views.setImageViewResource(R.id.widget_f1_icon, getWeatherIconRes(f1Type))
+            setWidgetIcon(context, views, R.id.widget_f1_icon, getWeatherIconRes(f1Type), 24)
 
             // 预报 Day 2
             views.setTextViewText(R.id.widget_f2_title, f2Title)
             views.setTextViewText(R.id.widget_f2_desc, f2Desc)
             views.setTextViewText(R.id.widget_f2_temp, f2Temp)
-            views.setImageViewResource(R.id.widget_f2_icon, getWeatherIconRes(f2Type))
+            setWidgetIcon(context, views, R.id.widget_f2_icon, getWeatherIconRes(f2Type), 24)
 
             // 预报 Day 3
             views.setTextViewText(R.id.widget_f3_title, f3Title)
             views.setTextViewText(R.id.widget_f3_desc, f3Desc)
             views.setTextViewText(R.id.widget_f3_temp, f3Temp)
-            views.setImageViewResource(R.id.widget_f3_icon, getWeatherIconRes(f3Type))
+            setWidgetIcon(context, views, R.id.widget_f3_icon, getWeatherIconRes(f3Type), 24)
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
+        }
+
+        private fun setWidgetIcon(context: Context, views: RemoteViews, viewId: Int, resId: Int, sizeDp: Int = 36) {
+            try {
+                val drawable = ContextCompat.getDrawable(context, resId)
+                if (drawable != null) {
+                    val density = context.resources.displayMetrics.density
+                    val sizePx = (sizeDp * density).toInt().coerceAtLeast(1)
+                    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+                    val canvas = Canvas(bitmap)
+                    drawable.setBounds(0, 0, canvas.width, canvas.height)
+                    drawable.draw(canvas)
+                    views.setImageViewBitmap(viewId, bitmap)
+                    return
+                }
+            } catch (e: Exception) {
+                Log.e("WeatherWidget4x3", "Failed to render icon to bitmap", e)
+            }
+            views.setImageViewResource(viewId, resId)
         }
 
         private fun getWeatherIconRes(weatherType: String): Int {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "墨迹纯净天气",
     "slug": "moji-weather-app",
-    "version": "1.1.3",
+    "version": "1.1.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -12,7 +12,7 @@
     },
     "android": {
       "package": "com.pure.mojiweather",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "backgroundColor": "#2980b9",
         "foregroundImage": "./assets/android-icon-foreground.png",

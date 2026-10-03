@@ -9,6 +9,8 @@ export default function HeaderBar({
   onRefresh,
   isRefreshing,
   onOpenCleanModal,
+  onOpenSkinModal,
+  onOpenWidgetModal,
 }) {
   return (
     <View style={styles.header}>
@@ -22,7 +24,7 @@ export default function HeaderBar({
         <View>
           <View style={styles.cityNameRow}>
             <Text style={styles.cityName}>{city.name}</Text>
-            <Ionicons name="chevron-down" size={16} color="rgba(255, 255, 255, 0.8)" style={styles.chevron} />
+            <Ionicons name="chevron-down" size={16} color="rgba(255, 255, 255, 0.9)" style={styles.chevron} />
           </View>
           <Text style={styles.citySub}>
             {city.admin1 && city.admin1 !== city.name ? `${city.admin1} · ` : ''}
@@ -31,17 +33,29 @@ export default function HeaderBar({
         </View>
       </TouchableOpacity>
 
-      {/* 右侧操作区：纯净版徽章 + 刷新 + 城市管理按钮 */}
+      {/* 右侧操作区：皮肤 + 小部件 + 城市管理 + 刷新 */}
       <View style={styles.actions}>
+        {/* 皮肤中心 */}
         <TouchableOpacity
-          style={styles.cleanBadge}
-          onPress={onOpenCleanModal}
-          activeOpacity={0.8}
+          style={styles.actionPill}
+          onPress={onOpenSkinModal}
+          activeOpacity={0.75}
         >
-          <Ionicons name="shield-checkmark" size={13} color="#2ecc71" style={{ marginRight: 3 }} />
-          <Text style={styles.cleanBadgeText}>无广告纯净版</Text>
+          <Ionicons name="color-palette-outline" size={14} color="#ffffff" style={{ marginRight: 3 }} />
+          <Text style={styles.actionPillText}>皮肤</Text>
         </TouchableOpacity>
 
+        {/* 小部件中心 */}
+        <TouchableOpacity
+          style={styles.actionPill}
+          onPress={onOpenWidgetModal}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="apps-outline" size={14} color="#ffffff" style={{ marginRight: 3 }} />
+          <Text style={styles.actionPillText}>微件</Text>
+        </TouchableOpacity>
+
+        {/* 刷新 */}
         <TouchableOpacity
           style={styles.iconBtn}
           onPress={onRefresh}
@@ -51,16 +65,17 @@ export default function HeaderBar({
           {isRefreshing ? (
             <ActivityIndicator size="small" color="#ffffff" />
           ) : (
-            <Ionicons name="refresh" size={20} color="#ffffff" />
+            <Ionicons name="refresh" size={18} color="#ffffff" />
           )}
         </TouchableOpacity>
 
+        {/* 城市管理 */}
         <TouchableOpacity
           style={styles.iconBtn}
           onPress={onOpenCityModal}
           activeOpacity={0.7}
         >
-          <Ionicons name="grid-outline" size={20} color="#ffffff" />
+          <Ionicons name="grid-outline" size={18} color="#ffffff" />
         </TouchableOpacity>
       </View>
     </View>
@@ -100,36 +115,38 @@ const styles = StyleSheet.create({
   },
   citySub: {
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.75)',
+    color: 'rgba(255, 255, 255, 0.85)',
     marginTop: 2,
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  cleanBadge: {
+  actionPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 8,
+    paddingVertical: 5,
+    borderRadius: 14,
+    marginLeft: 6,
     borderWidth: 1,
-    borderColor: 'rgba(46, 204, 113, 0.4)',
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
-  cleanBadgeText: {
+  actionPillText: {
     fontSize: 11,
     color: '#ffffff',
     fontWeight: '600',
   },
   iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
 });

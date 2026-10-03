@@ -18,8 +18,13 @@ import {
   DEFAULT_CITIES,
   fetchCompleteWeather,
 } from './src/services/weatherService';
+import {
+  loadSelectedSkin,
+  saveSelectedSkin,
+} from './src/utils/themeContext';
 import WeatherBackground from './src/components/WeatherBackground';
 import HeaderBar from './src/components/HeaderBar';
+import ClockWeatherWidget from './src/components/ClockWeatherWidget';
 import CurrentWeatherCard from './src/components/CurrentWeatherCard';
 import HourlyForecastCard from './src/components/HourlyForecastCard';
 import DailyForecastCard from './src/components/DailyForecastCard';
@@ -28,6 +33,8 @@ import LivingIndicesCard from './src/components/LivingIndicesCard';
 import WeatherDetailsGrid from './src/components/WeatherDetailsGrid';
 import CityManageModal from './src/components/CityManageModal';
 import AboutCleanModal from './src/components/AboutCleanModal';
+import SkinThemeModal from './src/components/SkinThemeModal';
+import WidgetCenterModal from './src/components/WidgetCenterModal';
 
 const STORAGE_SAVED_CITIES_KEY = '@pure_moji_weather_saved_cities';
 const STORAGE_CURRENT_CITY_KEY = '@pure_moji_weather_current_city';
@@ -35,6 +42,7 @@ const STORAGE_CURRENT_CITY_KEY = '@pure_moji_weather_current_city';
 export default function App() {
   const [currentCity, setCurrentCity] = useState(DEFAULT_CITIES[0]);
   const [savedCities, setSavedCities] = useState(DEFAULT_CITIES.slice(0, 6));
+  const [currentSkinId, setCurrentSkinId] = useState('auto');
   const [weatherData, setWeatherData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -42,13 +50,18 @@ export default function App() {
 
   const [isCityModalVisible, setIsCityModalVisible] = useState(false);
   const [isCleanModalVisible, setIsCleanModalVisible] = useState(false);
+  const [isSkinModalVisible, setIsSkinModalVisible] = useState(false);
+  const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
 
-  // 初始化加载持久化城市数据
+  // 初始化加载持久化城市数据与选中的皮肤
   useEffect(() => {
-    async function loadStoredCities() {
+    async function loadInitialData() {
       try {
-        const storedList = await AsyncStorage.getItem(STORAGE_SAVED_CITIES_KEY);
-        const storedCurrent = await AsyncStorage.getItem(STORAGE_CURRENT_CITY_KEY);
+        const [storedList, storedCurrent, storedSkin] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_SAVED_CITIES_KEY),
+          AsyncStorage.getItem(STORAGE_CURRENT_CITY_KEY),
+          loadSelectedSkin(),
+        ]);
 
         if (storedList) {
           const parsed = JSON.parse(storedList);
@@ -62,11 +75,14 @@ export default function App() {
             setCurrentCity(parsedCur);
           }
         }
+        if (storedSkin) {
+          setCurrentSkinId(storedSkin);
+        }
       } catch (err) {
         console.error('Failed to load storage:', err);
       }
     }
-    loadStoredCities();
+    loadInitialData();
   }, []);
 
   // 加载天气数据
@@ -125,12 +141,18 @@ export default function App() {
     });
   };
 
+  // 切换皮肤
+  const handleSelectSkin = (skinId) => {
+    setCurrentSkinId(skinId);
+    saveSelectedSkin(skinId);
+  };
+
   const weatherType = weatherData?.current?.weather?.type || 'sunny';
   const isDay = weatherData?.current?.isDay ?? true;
 
   return (
     <SafeAreaProvider>
-      <WeatherBackground weatherType={weatherType} isDay={isDay}>
+      <WeatherBackground weatherType={weatherType} isDay={isDay} skinId={currentSkinId}>
         <StatusBar style="light" translucent />
         <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
           {/* 顶部导航控制条 */}
@@ -141,6 +163,8 @@ export default function App() {
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}
             onOpenCleanModal={() => setIsCleanModalVisible(true)}
+            onOpenSkinModal={() => setIsSkinModalVisible(true)}
+            onOpenWidgetModal={() => setIsWidgetModalVisible(true)}
           />
 
           {/* 加载中状态 */}
@@ -152,7 +176,7 @@ export default function App() {
           ) : errorMessage && !weatherData ? (
             /* 错误提示与重试状态 */
             <View style={styles.centerContainer}>
-              <Ionicons name="cloud-offline-outline" size={60} color="rgba(255, 255, 255, 0.7)" />
+              <Ionicons name="cloud-offline-outline" size={60} color="rgba(255, 255, 255, 0.85)" />
               <Text style={styles.errorText}>{errorMessage}</Text>
               <TouchableOpacity
                 style={styles.retryBtn}
@@ -176,6 +200,15 @@ export default function App() {
                 />
               }
             >
+              {/* 0. 墨迹经典 4x2 翻页时钟天气微件 (点击直接进入小部件工坊) */}
+              <ClockWeatherWidget
+                current={weatherData.current}
+                today={weatherData.today}
+                aqi={weatherData.aqi}
+                city={currentCity}
+                onPress={() => setIsWidgetModalVisible(true)}
+              />
+
               {/* 1. 核心大字温度与即时天气状况 */}
               <CurrentWeatherCard
                 current={weatherData.current}
@@ -183,7 +216,7 @@ export default function App() {
                 aqi={weatherData.aqi}
                 shortTermRain={weatherData.shortTermRain}
                 onPressAqi={() => {
-                  // 点击 AQI 胶囊也可以快速唤起关于或高亮
+                  // 点击 AQI 胶囊唤起小部件或详细提示
                 }}
               />
 
@@ -205,10 +238,31 @@ export default function App() {
                 today={weatherData.today}
               />
 
+              {/* 底部功能条：快速更换皮肤与微件 */}
+              <View style={styles.quickBar}>
+                <TouchableOpacity
+                  style={styles.quickBtn}
+                  onPress={() => setIsSkinModalVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="color-palette" size={16} color="#ffffff" style={{ marginRight: 5 }} />
+                  <Text style={styles.quickBtnText}>更换皮肤主题</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickBtn}
+                  onPress={() => setIsWidgetModalVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="apps" size={16} color="#ffffff" style={{ marginRight: 5 }} />
+                  <Text style={styles.quickBtnText}>桌面小部件工坊</Text>
+                </TouchableOpacity>
+              </View>
+
               {/* 底部纯净承诺标语 */}
               <View style={styles.footerNote}>
-                <Ionicons name="leaf-outline" size={15} color="rgba(255, 255, 255, 0.5)" style={{ marginRight: 6 }} />
-                <Text style={styles.footerText}>墨迹纯净版 · 0 广告 · 0 营销 · 专注好天气</Text>
+                <Ionicons name="shield-checkmark" size={14} color="rgba(255, 255, 255, 0.7)" style={{ marginRight: 6 }} />
+                <Text style={styles.footerText}>墨迹纯净版 · 0 广告 · 0 弹窗 · 纯粹好天气</Text>
               </View>
             </ScrollView>
           )}
@@ -228,6 +282,24 @@ export default function App() {
           <AboutCleanModal
             visible={isCleanModalVisible}
             onClose={() => setIsCleanModalVisible(false)}
+          />
+
+          {/* 皮肤中心弹窗 */}
+          <SkinThemeModal
+            visible={isSkinModalVisible}
+            onClose={() => setIsSkinModalVisible(false)}
+            currentSkinId={currentSkinId}
+            onSelectSkin={handleSelectSkin}
+          />
+
+          {/* 小部件工坊弹窗 */}
+          <WidgetCenterModal
+            visible={isWidgetModalVisible}
+            onClose={() => setIsWidgetModalVisible(false)}
+            current={weatherData?.current}
+            today={weatherData?.today}
+            aqi={weatherData?.aqi}
+            city={currentCity}
           />
         </SafeAreaView>
       </WeatherBackground>
@@ -278,15 +350,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
+  quickBar: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 16,
+    paddingHorizontal: 16,
+  },
+  quickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  quickBtnText: {
+    fontSize: 13,
+    color: '#ffffff',
+    fontWeight: '600',
+  },
   footerNote: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 24,
+    paddingVertical: 20,
   },
   footerText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: 'rgba(255, 255, 255, 0.7)',
     letterSpacing: 0.5,
   },
 });

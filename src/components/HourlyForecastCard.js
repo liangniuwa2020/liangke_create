@@ -62,13 +62,13 @@ export default function HourlyForecastCard({ hourly = [] }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(0, 0, 0, 0.22)',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
     borderRadius: 20,
     marginHorizontal: 16,
     marginVertical: 8,
     paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   header: {
     flexDirection: 'row',

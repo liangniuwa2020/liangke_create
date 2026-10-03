@@ -193,10 +193,10 @@ export default function WidgetCenterModal({
               </View>
             </View>
 
-            {/* 微件 2：4x1 极简透明横条微件 */}
+            {/* 微件 3：4x1 极简透明横条微件 */}
             <View style={styles.widgetPreviewSection}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>2. 4×1 极简透明横条微件</Text>
+                <Text style={styles.sectionTitle}>3. 4×1 极简透明横条微件</Text>
                 <Text style={styles.sectionTag}>轻薄不挡壁纸</Text>
               </View>
 
@@ -227,10 +227,10 @@ export default function WidgetCenterModal({
               </View>
             </View>
 
-            {/* 微件 3：2x2 紧凑天气方块 */}
+            {/* 微件 4：2x2 紧凑天气方块 */}
             <View style={styles.widgetPreviewSection}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>3. 2×2 精巧方块微件</Text>
+                <Text style={styles.sectionTitle}>4. 2×2 精巧方块微件</Text>
                 <Text style={styles.sectionTag}>百搭桌面网格</Text>
               </View>
 

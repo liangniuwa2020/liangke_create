@@ -81,13 +81,18 @@ export default function AirQualityCard({ aqi }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: 'rgba(8, 16, 32, 0.65)',
     borderRadius: 20,
     marginHorizontal: 16,
     marginVertical: 8,
     padding: 16,
     borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
   header: {
     flexDirection: 'row',

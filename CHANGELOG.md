@@ -1,5 +1,26 @@
 # 墨迹天气纯净版 (Moji Weather Pure) - 更新日志
 
+## [v1.1.1] - 2026-10-03
+### 🌟 视觉重构与防眩光抗白底专项修复
+- **彻底杜绝纯白刺眼与无法看清问题**：
+  - **天幕深邃沉浸重构**：重新精调所有天气的色系梯度（如晴天由浅白蓝重构为深邃湛蓝 `#075985` -> `#0284c7` -> `#0369a1`），绝不含有刺眼苍白色；
+  - **多层底色防穿透兜底机制**：为 Android 窗口背景、启动屏 `splashscreen_background`、Web 容器、RN 根节点统一配置天蓝色底色兜底，杜绝任何白闪或渐变渲染丢失导致的白屏问题；
+  - **全组件升级暗调高对比微光磨砂玻璃卡片**：
+    - 主页 4x2 翻牌时钟部件、Weather Hero 看板、24 小时预报、7 天趋势、空气质量、生活指数等卡片全部升级为 `rgba(8, 16, 32, 0.65)` 深邃微光磨砂玻璃质感；
+    - 配备柔和深色阴影与细致边框，白色字号与图标在任何天气背景下形成超强视觉反差，无论白天室外还是夜间均能一秒看清所有天气数据！
+
+### 📦 安装包产物清单 (v1.1.1)
+- Android 手机安装包：
+  - [MojiWeather_v1.1.1.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather_v1.1.1.apk)
+  - [MojiWeather.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather.apk)
+  - [墨迹天气纯净版_v1.1.1.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/墨迹天气纯净版_v1.1.1.apk)
+- Windows 电脑端安装运行包：
+  - [MojiWeather_v1.1.1.exe](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather_v1.1.1.exe)
+  - [MojiWeather.exe](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather.exe)
+  - [墨迹天气纯净版_v1.1.1.exe](file:///E:/Antigravity%20ex_project/moji-weather-app/墨迹天气纯净版_v1.1.1.exe)
+
+---
+
 ## [v1.1.0] - 2026-10-03
 ### 🌟 新增功能与体验革新
 - **全天气动态高亮拟真背景**：

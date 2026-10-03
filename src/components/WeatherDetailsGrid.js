@@ -79,13 +79,18 @@ export default function WeatherDetailsGrid({ current, today }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: 'rgba(8, 16, 32, 0.65)',
     borderRadius: 20,
     marginHorizontal: 16,
     marginVertical: 8,
     padding: 16,
     borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
   header: {
     flexDirection: 'row',
@@ -113,12 +118,12 @@ const styles = StyleSheet.create({
   },
   gridItem: {
     width: '48.5%',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 14,
     padding: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   topRow: {
     flexDirection: 'row',

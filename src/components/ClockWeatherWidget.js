@@ -92,18 +92,19 @@ export default function ClockWeatherWidget({
 
 const styles = StyleSheet.create({
   widgetCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: 'rgba(7, 15, 32, 0.72)',
     borderRadius: 22,
     marginHorizontal: 16,
     marginTop: 6,
     marginBottom: 10,
     padding: 16,
     borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: 'rgba(255, 255, 255, 0.18)',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.35,
     shadowRadius: 10,
+    elevation: 6,
   },
   topBar: {
     flexDirection: 'row',

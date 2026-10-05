@@ -61,8 +61,14 @@ export default function CurrentWeatherCard({
             <Text style={styles.tempLargeNumber}>{current.temp}</Text>
             <Text style={styles.tempUnitDegree}>°C</Text>
             <View style={styles.highLowCol}>
-              <Text style={styles.highLowText}>高 {today.maxTemp}°</Text>
-              <Text style={styles.highLowText}>低 {today.minTemp}°</Text>
+              <View style={styles.highLowRow}>
+                <Text style={styles.highLowText}>高 {today.maxTemp}°</Text>
+                <Text style={styles.highLowText}>低 {today.minTemp}°</Text>
+              </View>
+              <View style={styles.rainProbRow}>
+                <Ionicons name="umbrella" size={11} color="#67e8f9" style={{ marginRight: 3 }} />
+                <Text style={styles.rainProbText}>降雨 {current.rainProb ?? today.rainProb ?? 0}%</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -76,7 +82,7 @@ export default function CurrentWeatherCard({
         </Text>
       </View>
 
-      {/* 墨迹经典指标胶囊条：空气质量 + 风向风级 + 相对湿度 */}
+      {/* 墨迹经典指标胶囊条：空气质量 + 风向风速 + 相对湿度 */}
       <View style={styles.tagPillsRow}>
         <TouchableOpacity
           style={[styles.aqiPill, { backgroundColor: aqi ? aqi.bgColor : 'rgba(255,255,255,0.2)' }]}
@@ -93,7 +99,7 @@ export default function CurrentWeatherCard({
         <View style={styles.infoPill}>
           <Ionicons name="paper-plane" size={12} color="#ffffff" style={{ marginRight: 4 }} />
           <Text style={styles.pillText}>
-            {current.windDirection} {current.windScale.text}
+            {current.windDirection} {current.windScale.text} · {current.windSpeed} km/h
           </Text>
         </View>
 
@@ -217,6 +223,11 @@ const styles = StyleSheet.create({
     marginLeft: 14,
     marginTop: 8,
   },
+  highLowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   highLowText: {
     fontSize: 13,
     color: '#ffffff',
@@ -224,6 +235,23 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
+  },
+  rainProbRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginTop: 4,
+    borderWidth: 0.8,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    alignSelf: 'flex-start',
+  },
+  rainProbText: {
+    fontSize: 11,
+    color: '#67e8f9',
+    fontWeight: '600',
   },
   summaryBar: {
     flexDirection: 'row',

@@ -109,7 +109,7 @@ export default function WidgetCenterModal({
                       <Text style={[styles.wTempText, selectedStyle === 'white' && styles.textDark]}>{current.temp}°</Text>
                     </View>
                     <Text style={[styles.wSubCondition, selectedStyle === 'white' && styles.textDarkSub]}>
-                      {current.weather.label} · {today.maxTemp}°/{today.minTemp}°
+                      {current.weather.label} · {today.maxTemp}°/{today.minTemp}° · 降雨 {current.rainProb ?? today.rainProb ?? 0}%
                     </Text>
                   </View>
                 </View>
@@ -122,7 +122,7 @@ export default function WidgetCenterModal({
                     </View>
                   )}
                   <Text style={[styles.w4x3MetaText, selectedStyle === 'white' && styles.textDarkSub]}>
-                    {current.windDirection} {current.windScale?.text || '微风'}
+                    {current.windDirection} {current.windScale?.text || '微风'} · {current.windSpeed ?? 12}km/h
                   </Text>
                   <Text style={[styles.w4x3MetaText, selectedStyle === 'white' && styles.textDarkSub]}>
                     湿度 {current.humidity}%
@@ -187,10 +187,10 @@ export default function WidgetCenterModal({
                 ]}
               >
                 {/* 顶栏：城市与当前气温 */}
-                <View style={[styles.w4x3Top, { marginBottom: 6 }]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={[styles.w4x3Top, { marginBottom: 4 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1, marginRight: 8 }}>
                     <Ionicons name="location" size={13} color="#38bdf8" />
-                    <Text style={[styles.w4x3City, selectedStyle === 'white' && styles.textDark]}>{city.name}</Text>
+                    <Text style={[styles.w4x3City, selectedStyle === 'white' && styles.textDark]} numberOfLines={1}>{city.name}</Text>
                     {showAqi && aqi && (
                       <View style={[styles.wAqiBadge, { backgroundColor: aqi.color, marginLeft: 6 }]}>
                         <Text style={styles.wAqiText}>AQI {aqi.aqi} {aqi.level}</Text>
@@ -205,8 +205,20 @@ export default function WidgetCenterModal({
                       style={{ marginRight: 4 }}
                     />
                     <Text style={[styles.wTempText, { fontSize: 16 }, selectedStyle === 'white' && styles.textDark]}>{current.temp}°</Text>
-                    <Text style={[styles.wSubCondition, { marginLeft: 4 }, selectedStyle === 'white' && styles.textDarkSub]}>{current.weather.label}</Text>
+                    <Text style={[styles.wSubCondition, { marginLeft: 4 }, selectedStyle === 'white' && styles.textDarkSub]}>
+                      {current.weather.label}
+                    </Text>
                   </View>
+                </View>
+
+                {/* 4x2 指标条：降雨概率 + 风速风向 */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, paddingHorizontal: 2 }}>
+                  <Text style={[{ fontSize: 10, color: '#38bdf8', fontWeight: '600' }, selectedStyle === 'white' && styles.textDarkSub]}>
+                    🌧️ 降雨概率 {current.rainProb ?? today.rainProb ?? 0}%
+                  </Text>
+                  <Text style={[{ fontSize: 10, color: '#cbd5e1' }, selectedStyle === 'white' && styles.textDarkSub]}>
+                    🧭 {current.windDirection} {current.windScale?.text || '微风'} · {current.windSpeed ?? 12} km/h
+                  </Text>
                 </View>
 
                 {/* 4x2 第 1 排：间隔 2 小时逐时预报 */}
@@ -262,35 +274,37 @@ export default function WidgetCenterModal({
                   selectedStyle === 'dark' && styles.darkBg,
                 ]}
               >
-                <View style={styles.slimLeft}>
+                <View style={[styles.slimLeft, { minWidth: 68 }]}>
                   <Text style={[styles.slimTime, selectedStyle === 'white' && styles.textDark]}>21:30</Text>
-                  <Text style={[styles.slimCity, selectedStyle === 'white' && styles.textDarkSub]}>10月3日 周六</Text>
+                  <Text style={[styles.slimCity, selectedStyle === 'white' && styles.textDarkSub]}>10月4日 周日</Text>
                 </View>
                 <View style={styles.wDivider} />
-                <View style={{ flex: 1, paddingLeft: 8 }}>
+                <View style={{ flex: 1, paddingHorizontal: 6, minWidth: 100 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Ionicons name="location" size={12} color="#38bdf8" />
-                    <Text style={[{ fontSize: 13, fontWeight: '700', color: '#fff', marginLeft: 2 }, selectedStyle === 'white' && styles.textDark]}>{city.name}</Text>
+                    <Text style={[{ fontSize: 12, fontWeight: '700', color: '#fff', marginLeft: 2 }, selectedStyle === 'white' && styles.textDark]} numberOfLines={1}>{city.name}</Text>
                     {showAqi && aqi && (
-                      <View style={[styles.wAqiBadge, { backgroundColor: aqi.color, marginLeft: 6 }]}>
-                        <Text style={styles.wAqiText}>AQI {aqi.aqi} {aqi.level}</Text>
+                      <View style={[styles.wAqiBadge, { backgroundColor: aqi.color, marginLeft: 4, paddingVertical: 1 }]}>
+                        <Text style={styles.wAqiText}>{aqi.level}</Text>
                       </View>
                     )}
                   </View>
-                  <Text style={[{ fontSize: 10, color: '#94a3b8', marginTop: 2 }, selectedStyle === 'white' && styles.textDarkSub]}>
-                    {current.windDirection} {current.windScale?.text || '微风'} · 湿度 {current.humidity}%
+                  <Text style={[{ fontSize: 10, color: '#cbd5e1', marginTop: 3 }, selectedStyle === 'white' && styles.textDarkSub]} numberOfLines={1}>
+                    {current.windDirection} {current.windScale?.text || '微风'} · {current.windSpeed ?? 12}km/h
                   </Text>
                 </View>
-                <View style={styles.slimRight}>
+                <View style={[styles.slimRight, { minWidth: 80, justifyContent: 'flex-end' }]}>
                   <Ionicons
                     name={current.weather.icon}
-                    size={22}
+                    size={24}
                     color={current.weather.type === 'sunny' ? '#f59e0b' : '#38bdf8'}
                     style={{ marginRight: 6 }}
                   />
-                  <View style={{ alignItems: 'flex-end' }}>
+                  <View style={{ alignItems: 'flex-start' }}>
                     <Text style={[styles.slimTemp, selectedStyle === 'white' && styles.textDark]}>{current.temp}°</Text>
-                    <Text style={[{ fontSize: 9, color: '#cbd5e1' }, selectedStyle === 'white' && styles.textDarkSub]}>{current.weather.label} {today.maxTemp}°/{today.minTemp}°</Text>
+                    <Text style={[{ fontSize: 9, color: '#38bdf8', fontWeight: '600' }, selectedStyle === 'white' && styles.textDarkSub]}>
+                      降雨 {current.rainProb ?? today.rainProb ?? 0}%
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -320,7 +334,9 @@ export default function WidgetCenterModal({
                   <Text style={[styles.sqTemp, selectedStyle === 'white' && styles.textDark]}>{current.temp}°</Text>
                 </View>
                 <Text style={[styles.sqCity, selectedStyle === 'white' && styles.textDark]}>{city.name} · {current.weather.label}</Text>
-                <Text style={[styles.sqTip, selectedStyle === 'white' && styles.textDarkSub]}>体感 {current.apparentTemp}° · 湿度 {current.humidity}%</Text>
+                <Text style={[styles.sqTip, selectedStyle === 'white' && styles.textDarkSub]}>
+                  体感 {current.apparentTemp}° · 降雨 {current.rainProb ?? today.rainProb ?? 0}% · 风速 {current.windSpeed ?? 12}km/h
+                </Text>
               </View>
             </View>
 

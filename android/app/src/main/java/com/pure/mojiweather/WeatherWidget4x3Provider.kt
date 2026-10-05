@@ -95,7 +95,8 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
                     weatherType = json.optString("weatherType", weatherType)
                     val maxT = json.optInt("maxTemp", 26)
                     val minT = json.optInt("minTemp", 15)
-                    tempRange = "$maxT° / $minT°"
+                    val rainProb = json.optInt("rainProb", 0)
+                    tempRange = "$maxT° / $minT° · 降雨 $rainProb%"
                     
                     val aqiVal = json.optInt("aqi", 32)
                     val aqiLevel = json.optString("aqiLevel", "优")

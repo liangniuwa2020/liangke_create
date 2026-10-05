@@ -158,9 +158,10 @@ export default function App() {
             weatherType: data.current?.weather?.type || 'sunny',
             maxTemp: data.today?.maxTemp ?? 26,
             minTemp: data.today?.minTemp ?? 15,
+            rainProb: data.current?.rainProb ?? data.today?.rainProb ?? 0,
             aqi: data.aqi?.aqi || 32,
             aqiLevel: data.aqi?.level || '优',
-            windInfo: `${data.current?.windDirection || '微风'} ${data.current?.windScale?.text || '2级'}`,
+            windInfo: `${data.current?.windDirection || '微风'} ${data.current?.windScale?.text || '2级'} ${data.current?.windSpeed ? data.current.windSpeed + 'km/h' : ''}`.trim(),
             humidityInfo: `湿度 ${data.current?.humidity || 48}%`,
             airDesc: data.aqi ? `空气质量${data.aqi.level}` : '体感舒适',
             updateTime: data.current?.updateTime || '刚刚更新',
@@ -189,7 +190,7 @@ export default function App() {
     }
   }, [currentCity, loadWeather]);
 
-  // 下拉刷新 (如果是 GPS 定位，同时重新扫描高精度 GPS 与当前街道)
+  // 下拉刷新与微件主动刷新 (如果是 GPS 定位，同时重新扫描高精度 GPS 与当前街道)
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     let targetCity = currentCity;
@@ -205,6 +206,18 @@ export default function App() {
     }
     loadWeather(targetCity, false);
   }, [currentCity, autoDetectLocation, loadWeather]);
+
+  // 默认 1 个小时 (3600秒) 自动定时刷新天气与微件数据
+  useEffect(() => {
+    const ONE_HOUR = 60 * 60 * 1000;
+    const timer = setInterval(() => {
+      if (currentCity) {
+        console.log('[AutoRefresh] 达到1小时定时，自动刷新小挂件与天气数据');
+        handleRefresh();
+      }
+    }, ONE_HOUR);
+    return () => clearInterval(timer);
+  }, [currentCity, handleRefresh]);
 
   // 切换选中城市
   const handleSelectCity = (city) => {
@@ -291,13 +304,14 @@ export default function App() {
                 />
               }
             >
-              {/* 0. 墨迹经典 4x2 翻页时钟天气微件 (点击直接进入小部件工坊) */}
+              {/* 0. 墨迹经典 4x2 翻页时钟天气微件 (支持微件原地刷新与1小时自动更新，无需弹出) */}
               <ClockWeatherWidget
                 current={weatherData.current}
                 today={weatherData.today}
                 aqi={weatherData.aqi}
                 city={currentCity}
-                onPress={() => setIsWidgetModalVisible(true)}
+                onRefresh={handleRefresh}
+                isRefreshing={isRefreshing}
               />
 
               {/* 1. 核心大字温度与即时天气状况 */}

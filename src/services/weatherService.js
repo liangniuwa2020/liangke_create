@@ -379,6 +379,7 @@ export async function fetchCompleteWeather(latitude, longitude) {
         apparentTemp: Math.round(current.apparent_temperature),
         humidity: Math.round(current.relative_humidity_2m),
         precipitation: current.precipitation || 0,
+        rainProb: todayRainProb,
         pressure: Math.round(current.pressure_msl || 1013),
         windSpeed: Math.round(current.wind_speed_10m),
         windScale,
@@ -390,6 +391,8 @@ export async function fetchCompleteWeather(latitude, longitude) {
       today: {
         maxTemp: dailyList.length > 0 ? dailyList[0].maxTemp : Math.round(current.temperature_2m + 4),
         minTemp: dailyList.length > 0 ? dailyList[0].minTemp : Math.round(current.temperature_2m - 4),
+        rainProb: dailyList.length > 0 ? dailyList[0].rainProb : todayRainProb,
+        currentRainProb: todayRainProb,
         sunrise: dailyList.length > 0 ? dailyList[0].sunrise : '06:00',
         sunset: dailyList.length > 0 ? dailyList[0].sunset : '18:30',
         uvIndex: Math.round(todayUv),

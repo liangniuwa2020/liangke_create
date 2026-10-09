@@ -19,6 +19,7 @@ import java.util.Locale
 class WeatherWidget4x1Provider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        WeatherWidgetSyncHelper.schedule20MinAutoRefresh(context)
         for (appWidgetId in appWidgetIds) {
             updateWidget(context, appWidgetManager, appWidgetId)
         }
@@ -27,7 +28,11 @@ class WeatherWidget4x1Provider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == ACTION_REFRESH_WIDGET) {
-            updateAllWidgets(context)
+            // 点击小部件刷新：直接后台更新天气状态，无需返回主界面
+            WeatherWidgetSyncHelper.fetchWeatherInBackground(context, showFeedback = true)
+        } else if (intent.action == WeatherWidgetSyncHelper.ACTION_SWITCH_WIDGET_SKIN) {
+            // 点击小部件换肤按钮：循环切换皮肤并立即刷新全量微件
+            WeatherWidgetSyncHelper.toggleWidgetSkin(context)
         }
     }
 
@@ -55,6 +60,7 @@ class WeatherWidget4x1Provider : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.widget_root, pendingLaunchIntent)
 
+            // 直接刷新小部件，不返回主界面
             val refreshIntent = Intent(context, WeatherWidget4x1Provider::class.java).apply {
                 action = ACTION_REFRESH_WIDGET
             }
@@ -63,9 +69,58 @@ class WeatherWidget4x1Provider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widget_btn_refresh, pendingRefreshIntent)
+            views.setOnClickPendingIntent(R.id.widget_sub_info, pendingRefreshIntent)
 
-            val prefs = context.getSharedPreferences(WeatherWidget4x3Provider.PREFS_NAME, Context.MODE_PRIVATE)
-            val jsonStr = prefs.getString(WeatherWidget4x3Provider.KEY_WEATHER_DATA, null)
+            // 设置小部件皮肤切换按钮的 PendingIntent
+            val skinIntent = Intent(context, WeatherWidget4x1Provider::class.java).apply {
+                action = WeatherWidgetSyncHelper.ACTION_SWITCH_WIDGET_SKIN
+            }
+            val pendingSkinIntent = PendingIntent.getBroadcast(
+                context, 401, skinIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widget_btn_skin, pendingSkinIntent)
+
+            val prefs = context.getSharedPreferences(WeatherWidgetSyncHelper.PREFS_NAME, Context.MODE_PRIVATE)
+            val jsonStr = prefs.getString(WeatherWidgetSyncHelper.KEY_WEATHER_DATA, null)
+            val skinType = prefs.getString(WeatherWidgetSyncHelper.KEY_WIDGET_SKIN, "dark") ?: "dark"
+
+            // 根据所选皮肤设置背景样式
+            when (skinType.lowercase()) {
+                "white" -> {
+                    views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg_4x1_white)
+                    views.setTextColor(R.id.widget_text_clock, 0xFF0F172A.toInt())
+                    views.setTextColor(R.id.widget_city_name, 0xFF0F172A.toInt())
+                    views.setTextColor(R.id.widget_temperature, 0xFF0F172A.toInt())
+                    views.setTextColor(R.id.widget_date_label, 0xFF475569.toInt())
+                    views.setTextColor(R.id.widget_weather_desc, 0xFF334155.toInt())
+                    views.setTextColor(R.id.widget_sub_info, 0xFF64748B.toInt())
+                    views.setInt(R.id.widget_btn_skin, "setColorFilter", 0xFF0F172A.toInt())
+                    views.setInt(R.id.widget_btn_refresh, "setColorFilter", 0xFF0F172A.toInt())
+                }
+                "glass" -> {
+                    views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg_4x1_glass)
+                    views.setTextColor(R.id.widget_text_clock, 0xFFFFFFFF.toInt())
+                    views.setTextColor(R.id.widget_city_name, 0xFFFFFFFF.toInt())
+                    views.setTextColor(R.id.widget_temperature, 0xFFFFFFFF.toInt())
+                    views.setTextColor(R.id.widget_date_label, 0xFFE2E8F0.toInt())
+                    views.setTextColor(R.id.widget_weather_desc, 0xFFF1F5F9.toInt())
+                    views.setTextColor(R.id.widget_sub_info, 0xFFCBD5E1.toInt())
+                    views.setInt(R.id.widget_btn_skin, "setColorFilter", 0xFFFFFFFF.toInt())
+                    views.setInt(R.id.widget_btn_refresh, "setColorFilter", 0xFFFFFFFF.toInt())
+                }
+                else -> { // "dark"
+                    views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg_4x1)
+                    views.setTextColor(R.id.widget_text_clock, 0xFFFFFFFF.toInt())
+                    views.setTextColor(R.id.widget_city_name, 0xFFFFFFFF.toInt())
+                    views.setTextColor(R.id.widget_temperature, 0xFFFFFFFF.toInt())
+                    views.setTextColor(R.id.widget_date_label, 0xFFCBD5E1.toInt())
+                    views.setTextColor(R.id.widget_weather_desc, 0xFFFFFFFF.toInt())
+                    views.setTextColor(R.id.widget_sub_info, 0xFF94A3B8.toInt())
+                    views.setInt(R.id.widget_btn_skin, "setColorFilter", 0xFFE2E8F0.toInt())
+                    views.setInt(R.id.widget_btn_refresh, "setColorFilter", 0xFFE2E8F0.toInt())
+                }
+            }
 
             var cityName = "南昌"
             var tempStr = "24°"

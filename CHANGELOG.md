@@ -1,5 +1,24 @@
 # 墨迹天气纯净版 (Moji Weather Pure) - 更新日志
 
+## [v1.1.9] - 2026-10-06
+### ⏱️ 20 分钟全自动天气刷新体系
+- **前后台双通道 20 分钟刷新**：
+  - 前台每 20 分钟（1200秒）自动轮询拉取最新气象与空气质量，并在 App 切回前台时智能检测更新；
+  - 原生 Android 接入 `AlarmManager` 20 分钟后台定时唤醒机制（`WeatherWidgetAutoRefreshReceiver`），App 退出或手机息屏也能自动静默同步。
+- **全量小部件即时同步**：
+  - 每次天气状态刷新后，自动重绘 4×3、4×2、4×1 全系列桌面小部件。
+- **小部件独立点击更新（免返回主界面）**：
+  - 优化刷新热区与「正在刷新...」即时视觉反馈；
+  - 点击小部件上的更新按钮时，底层直接在后台发起气象请求并刷新小部件数据，**绝不跳转回 App 主界面**。
+
+### 📦 安装包产物清单 (v1.1.9)
+- Android 手机安装包：
+  - [MojiWeather_v1.1.9.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather_v1.1.9.apk)
+  - [MojiWeather.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/MojiWeather.apk)
+  - [墨迹天气纯净版_v1.1.9.apk](file:///E:/Antigravity%20ex_project/moji-weather-app/墨迹天气纯净版_v1.1.9.apk)
+
+---
+
 ## [v1.1.4] - 2026-10-03
 ### 🛠️ 桌面小部件“无法加载”根因修复 (RemoteViews Crash Fix)
 - **根除 RemoteViews XML 非法标签与属性导致微件加载失败的问题**：

@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, NativeModules } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+
+const WIDGET_SKIN_STORAGE_KEY = '@pure_moji_weather_widget_skin';
 
 export default function WidgetCenterModal({
   visible,
@@ -10,8 +13,28 @@ export default function WidgetCenterModal({
   aqi,
   city,
 }) {
-  const [selectedStyle, setSelectedStyle] = useState('glass'); // 'glass' | 'white' | 'dark'
+  const [selectedStyle, setSelectedStyle] = useState('dark'); // 'dark' | 'white' | 'glass'
   const [showAqi, setShowAqi] = useState(true);
+
+  useEffect(() => {
+    AsyncStorage.getItem(WIDGET_SKIN_STORAGE_KEY).then(saved => {
+      if (saved) {
+        setSelectedStyle(saved);
+      }
+    }).catch(console.error);
+  }, [visible]);
+
+  const handleSelectSkin = (skin) => {
+    setSelectedStyle(skin);
+    AsyncStorage.setItem(WIDGET_SKIN_STORAGE_KEY, skin).catch(console.error);
+    if (NativeModules.WeatherWidgetModule && NativeModules.WeatherWidgetModule.setWidgetSkin) {
+      try {
+        NativeModules.WeatherWidgetModule.setWidgetSkin(skin);
+      } catch (err) {
+        console.warn('Call setWidgetSkin error:', err);
+      }
+    }
+  };
 
   if (!current || !today) return null;
 
@@ -32,7 +55,7 @@ export default function WidgetCenterModal({
               </View>
               <View>
                 <Text style={styles.title}>墨迹桌面小部件工坊</Text>
-                <Text style={styles.subtitle}>自选尺寸与材质，装扮您的手机桌面</Text>
+                <Text style={styles.subtitle}>自选尺寸与皮肤，即时同步至手机桌面</Text>
               </View>
             </View>
 
@@ -43,24 +66,24 @@ export default function WidgetCenterModal({
 
           {/* 材质风格切换 */}
           <View style={styles.styleSelectorRow}>
-            <Text style={styles.selectorLabel}>微件材质：</Text>
+            <Text style={styles.selectorLabel}>桌面小部件皮肤：</Text>
             <TouchableOpacity
-              style={[styles.styleChip, selectedStyle === 'glass' && styles.styleChipActive]}
-              onPress={() => setSelectedStyle('glass')}
+              style={[styles.styleChip, selectedStyle === 'dark' && styles.styleChipActive]}
+              onPress={() => handleSelectSkin('dark')}
             >
-              <Text style={[styles.styleChipText, selectedStyle === 'glass' && styles.styleChipTextActive]}>高通透毛玻璃</Text>
+              <Text style={[styles.styleChipText, selectedStyle === 'dark' && styles.styleChipTextActive]}>沉浸深黑</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.styleChip, selectedStyle === 'white' && styles.styleChipActive]}
-              onPress={() => setSelectedStyle('white')}
+              onPress={() => handleSelectSkin('white')}
             >
               <Text style={[styles.styleChipText, selectedStyle === 'white' && styles.styleChipTextActive]}>质感白卡</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.styleChip, selectedStyle === 'dark' && styles.styleChipActive]}
-              onPress={() => setSelectedStyle('dark')}
+              style={[styles.styleChip, selectedStyle === 'glass' && styles.styleChipActive]}
+              onPress={() => handleSelectSkin('glass')}
             >
-              <Text style={[styles.styleChipText, selectedStyle === 'dark' && styles.styleChipTextActive]}>沉浸深黑</Text>
+              <Text style={[styles.styleChipText, selectedStyle === 'glass' && styles.styleChipTextActive]}>高通透毛玻璃</Text>
             </TouchableOpacity>
           </View>
 

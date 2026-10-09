@@ -2,6 +2,7 @@
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" tools:replace="android:maxSdkVersion"/>
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
@@ -33,6 +34,7 @@
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
         <action android:name="com.pure.mojiweather.ACTION_REFRESH_WIDGET_4X3"/>
+        <action android:name="com.pure.mojiweather.ACTION_SWITCH_WIDGET_SKIN"/>
       </intent-filter>
       <meta-data
           android:name="android.appwidget.provider"
@@ -47,6 +49,7 @@
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
         <action android:name="com.pure.mojiweather.ACTION_REFRESH_WIDGET_4X2"/>
+        <action android:name="com.pure.mojiweather.ACTION_SWITCH_WIDGET_SKIN"/>
       </intent-filter>
       <meta-data
           android:name="android.appwidget.provider"
@@ -61,10 +64,22 @@
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
         <action android:name="com.pure.mojiweather.ACTION_REFRESH_WIDGET_4X1"/>
+        <action android:name="com.pure.mojiweather.ACTION_SWITCH_WIDGET_SKIN"/>
       </intent-filter>
       <meta-data
           android:name="android.appwidget.provider"
           android:resource="@xml/weather_widget_4x1_info"/>
+    </receiver>
+
+    <!-- 20 分钟后台定时自动刷新天气广播接收器 -->
+    <receiver
+        android:name=".WeatherWidgetAutoRefreshReceiver"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="com.pure.mojiweather.ACTION_AUTO_REFRESH_20MIN"/>
+        <action android:name="android.intent.action.BOOT_COMPLETED"/>
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+      </intent-filter>
     </receiver>
   </application>
 </manifest>

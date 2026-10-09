@@ -19,6 +19,7 @@ import java.util.Locale
 class WeatherWidget4x3Provider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        WeatherWidgetSyncHelper.schedule20MinAutoRefresh(context)
         for (appWidgetId in appWidgetIds) {
             updateWidget(context, appWidgetManager, appWidgetId)
         }
@@ -27,14 +28,18 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == ACTION_REFRESH_WIDGET) {
-            updateAllWidgets(context)
+            // 点击小部件刷新：直接后台更新天气状态，无需返回主界面
+            WeatherWidgetSyncHelper.fetchWeatherInBackground(context, showFeedback = true)
+        } else if (intent.action == WeatherWidgetSyncHelper.ACTION_SWITCH_WIDGET_SKIN) {
+            // 点击小部件换肤按钮：循环切换皮肤并立即刷新全量微件
+            WeatherWidgetSyncHelper.toggleWidgetSkin(context)
         }
     }
 
     companion object {
         const val ACTION_REFRESH_WIDGET = "com.pure.mojiweather.ACTION_REFRESH_WIDGET_4X3"
-        const val PREFS_NAME = "MojiWeatherWidgetPrefs"
-        const val KEY_WEATHER_DATA = "widget_weather_json"
+        const val PREFS_NAME = WeatherWidgetSyncHelper.PREFS_NAME
+        const val KEY_WEATHER_DATA = WeatherWidgetSyncHelper.KEY_WEATHER_DATA
 
         fun updateAllWidgets(context: Context) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
@@ -48,7 +53,7 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
         private fun updateWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
             val views = RemoteViews(context.packageName, R.layout.widget_weather_4x3)
 
-            // 1. 设置打开 App 主界面的 PendingIntent
+            // 1. 设置打开 App 主界面的 PendingIntent (绑定时钟、日期与核心气温)
             val launchIntent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
@@ -56,9 +61,12 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
                 context, 0, launchIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            views.setOnClickPendingIntent(R.id.widget_root, pendingLaunchIntent)
+            views.setOnClickPendingIntent(R.id.widget_text_clock, pendingLaunchIntent)
+            views.setOnClickPendingIntent(R.id.widget_date_label, pendingLaunchIntent)
+            views.setOnClickPendingIntent(R.id.widget_temperature, pendingLaunchIntent)
+            views.setOnClickPendingIntent(R.id.widget_weather_icon, pendingLaunchIntent)
 
-            // 2. 设置点击刷新按钮的 PendingIntent
+            // 2. 设置点击刷新更新的 PendingIntent (直接后台拉取，不返回主界面)
             val refreshIntent = Intent(context, WeatherWidget4x3Provider::class.java).apply {
                 action = ACTION_REFRESH_WIDGET
             }
@@ -67,10 +75,69 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widget_btn_refresh, pendingRefreshIntent)
+            views.setOnClickPendingIntent(R.id.widget_update_time, pendingRefreshIntent)
+            views.setOnClickPendingIntent(R.id.widget_refresh_container, pendingRefreshIntent)
 
-            // 3. 读取本地保存的天气数据
+            // 2.1 设置小部件皮肤切换按钮的 PendingIntent
+            val skinIntent = Intent(context, WeatherWidget4x3Provider::class.java).apply {
+                action = WeatherWidgetSyncHelper.ACTION_SWITCH_WIDGET_SKIN
+            }
+            val pendingSkinIntent = PendingIntent.getBroadcast(
+                context, 403, skinIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widget_btn_skin, pendingSkinIntent)
+
+            // 3. 读取本地保存的天气数据与小部件皮肤设置
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val jsonStr = prefs.getString(KEY_WEATHER_DATA, null)
+            val skinType = prefs.getString(WeatherWidgetSyncHelper.KEY_WIDGET_SKIN, "dark") ?: "dark"
+
+            // 根据所选皮肤设置背景样式
+            when (skinType.lowercase()) {
+                "white" -> {
+                    views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg_white)
+                    views.setTextColor(R.id.widget_city_name, 0xFF0F172A.toInt())
+                    views.setTextColor(R.id.widget_text_clock, 0xFF0F172A.toInt())
+                    views.setTextColor(R.id.widget_date_label, 0xFF475569.toInt())
+                    views.setTextColor(R.id.widget_temperature, 0xFF0F172A.toInt())
+                    views.setTextColor(R.id.widget_weather_desc, 0xFF334155.toInt())
+                    views.setTextColor(R.id.widget_temp_range, 0xFF475569.toInt())
+                    views.setTextColor(R.id.widget_wind_info, 0xFF475569.toInt())
+                    views.setTextColor(R.id.widget_humidity_info, 0xFF475569.toInt())
+                    views.setTextColor(R.id.widget_update_time, 0xFF64748B.toInt())
+                    views.setInt(R.id.widget_btn_skin, "setColorFilter", 0xFF0F172A.toInt())
+                    views.setInt(R.id.widget_btn_refresh, "setColorFilter", 0xFF0F172A.toInt())
+                }
+                "glass" -> {
+                    views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg_glass)
+                    views.setTextColor(R.id.widget_city_name, 0xFFFFFFFF.toInt())
+                    views.setTextColor(R.id.widget_text_clock, 0xFFFFFFFF.toInt())
+                    views.setTextColor(R.id.widget_date_label, 0xFFE2E8F0.toInt())
+                    views.setTextColor(R.id.widget_temperature, 0xFFFFFFFF.toInt())
+                    views.setTextColor(R.id.widget_weather_desc, 0xFFF1F5F9.toInt())
+                    views.setTextColor(R.id.widget_temp_range, 0xFFCBD5E1.toInt())
+                    views.setTextColor(R.id.widget_wind_info, 0xFFCBD5E1.toInt())
+                    views.setTextColor(R.id.widget_humidity_info, 0xFFCBD5E1.toInt())
+                    views.setTextColor(R.id.widget_update_time, 0xFF94A3B8.toInt())
+                    views.setInt(R.id.widget_btn_skin, "setColorFilter", 0xFFFFFFFF.toInt())
+                    views.setInt(R.id.widget_btn_refresh, "setColorFilter", 0xFFFFFFFF.toInt())
+                }
+                else -> { // "dark"
+                    views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg_4x3)
+                    views.setTextColor(R.id.widget_city_name, 0xFFFFFFFF.toInt())
+                    views.setTextColor(R.id.widget_text_clock, 0xFFFFFFFF.toInt())
+                    views.setTextColor(R.id.widget_date_label, 0xFFCBD5E1.toInt())
+                    views.setTextColor(R.id.widget_temperature, 0xFFFFFFFF.toInt())
+                    views.setTextColor(R.id.widget_weather_desc, 0xFFFFFFFF.toInt())
+                    views.setTextColor(R.id.widget_temp_range, 0xFF94A3B8.toInt())
+                    views.setTextColor(R.id.widget_wind_info, 0xFF94A3B8.toInt())
+                    views.setTextColor(R.id.widget_humidity_info, 0xFF94A3B8.toInt())
+                    views.setTextColor(R.id.widget_update_time, 0xFF94A3B8.toInt())
+                    views.setInt(R.id.widget_btn_skin, "setColorFilter", 0xFFE2E8F0.toInt())
+                    views.setInt(R.id.widget_btn_refresh, "setColorFilter", 0xFFE2E8F0.toInt())
+                }
+            }
 
             var cityName = "北京"
             var tempStr = "24°"

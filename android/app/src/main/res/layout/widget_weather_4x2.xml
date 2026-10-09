@@ -96,14 +96,23 @@
             android:textColor="#38BDF8"
             android:layout_marginLeft="3dp" />
 
+        <!-- 更换皮肤按钮 -->
+        <ImageView
+            android:id="@+id/widget_btn_skin"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_widget_skin"
+            android:padding="3dp"
+            android:layout_marginLeft="4dp" />
+
         <!-- 刷新按钮 -->
         <ImageView
             android:id="@+id/widget_btn_refresh"
-            android:layout_width="16dp"
-            android:layout_height="16dp"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
             android:src="@drawable/ic_widget_refresh"
-            android:padding="1dp"
-            android:layout_marginLeft="6dp" />
+            android:padding="3dp"
+            android:layout_marginLeft="4dp" />
     </LinearLayout>
 
     <!-- 2. 下半部分双排气象看板：第一排 2小时逐时天气，第二排 每天天气 -->

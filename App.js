@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Dimensions,
   NativeModules,
+  AppState,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -71,6 +72,7 @@ export default function App() {
   const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
   const [isDailyDetailVisible, setIsDailyDetailVisible] = useState(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState(null);
+  const lastRefreshTimestampRef = useRef(Date.now());
 
   // 自动根据 GPS / 网络高精度定位当前位置
   const autoDetectLocation = useCallback(async (isSilent = false) => {
@@ -151,8 +153,13 @@ export default function App() {
             rainProb: h.rainProb || 0,
           }));
 
+          const savedWidgetSkin = await AsyncStorage.getItem('@pure_moji_weather_widget_skin') || 'dark';
+
           const widgetPayload = {
             city: city.name,
+            skin: savedWidgetSkin,
+            latitude: city.latitude,
+            longitude: city.longitude,
             temp: data.current?.temp ?? 24,
             weatherDesc: data.current?.weather?.label || '晴朗',
             weatherType: data.current?.weather?.type || 'sunny',
@@ -174,6 +181,7 @@ export default function App() {
           console.log('Update widget error:', we);
         }
       }
+      lastRefreshTimestampRef.current = Date.now();
     } catch (err) {
       console.error(err);
       setErrorMessage('网络连接异常或卫星数据同步超时，请点击重试');
@@ -207,17 +215,31 @@ export default function App() {
     loadWeather(targetCity, false);
   }, [currentCity, autoDetectLocation, loadWeather]);
 
-  // 默认 1 个小时 (3600秒) 自动定时刷新天气与微件数据
+  // 核心需求 1 & 2：每 20 分钟 (1200秒) 自动刷新一次软件，更新天气状态并同步至小部件
   useEffect(() => {
-    const ONE_HOUR = 60 * 60 * 1000;
+    const TWENTY_MINUTES = 20 * 60 * 1000;
     const timer = setInterval(() => {
       if (currentCity) {
-        console.log('[AutoRefresh] 达到1小时定时，自动刷新小挂件与天气数据');
+        console.log('[AutoRefresh] 达到20分钟定时，自动刷新软件天气状态并同步至桌面小部件');
         handleRefresh();
       }
-    }, ONE_HOUR);
+    }, TWENTY_MINUTES);
     return () => clearInterval(timer);
   }, [currentCity, handleRefresh]);
+
+  // 前台恢复监听：若软件切回前台时距离上次刷新已超过 20 分钟，自动刷新
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') {
+        const elapsed = Date.now() - lastRefreshTimestampRef.current;
+        if (elapsed >= 20 * 60 * 1000) {
+          console.log('[AppState] 超过20分钟切回前台，自动刷新软件天气');
+          handleRefresh();
+        }
+      }
+    });
+    return () => sub.remove();
+  }, [handleRefresh]);
 
   // 切换选中城市
   const handleSelectCity = (city) => {

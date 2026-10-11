@@ -35,6 +35,9 @@ class MainApplication : Application(), ReactApplication {
     }
     loadReactNative(this)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
+
+    // 应用启动时校准桌面小部件的 20 分钟后台定时自动刷新调度
+    WeatherWidgetSyncHelper.schedule20MinAutoRefresh(this)
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {

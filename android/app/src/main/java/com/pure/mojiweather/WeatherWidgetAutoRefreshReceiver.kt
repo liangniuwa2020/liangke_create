@@ -9,12 +9,23 @@ class WeatherWidgetAutoRefreshReceiver : BroadcastReceiver() {
         val action = intent.action
         if (action == WeatherWidgetSyncHelper.ACTION_AUTO_REFRESH_20MIN ||
             action == Intent.ACTION_BOOT_COMPLETED ||
-            action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+            action == Intent.ACTION_MY_PACKAGE_REPLACED ||
+            action == Intent.ACTION_USER_PRESENT) {
             
-            // 后台静默执行 20 分钟天气同步，更新 SharedPreferences 并重绘所有小部件
-            WeatherWidgetSyncHelper.fetchWeatherInBackground(context, showFeedback = false)
-            // 重新调度下一次 20 分钟闹钟
-            WeatherWidgetSyncHelper.schedule20MinAutoRefresh(context)
+            // 使用 goAsync() 延长广播接收器生命周期，保证系统休眠或切后台时异步网络请求能完整执行完毕
+            val pendingResult = goAsync()
+            val appContext = context.applicationContext
+
+            WeatherWidgetSyncHelper.fetchWeatherInBackground(appContext, showFeedback = false) {
+                // 确保执行完毕后再调度下一次 20 分钟闹钟，并结束 Broadcast 生命周期
+                try {
+                    WeatherWidgetSyncHelper.schedule20MinAutoRefresh(appContext)
+                } finally {
+                    try {
+                        pendingResult.finish()
+                    } catch (_: Exception) {}
+                }
+            }
         }
     }
 }

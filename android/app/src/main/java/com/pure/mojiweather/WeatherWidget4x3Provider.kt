@@ -18,11 +18,19 @@ import java.util.Locale
 
 class WeatherWidget4x3Provider : AppWidgetProvider() {
 
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        WeatherWidgetSyncHelper.schedule20MinAutoRefresh(context)
+        WeatherWidgetSyncHelper.fetchWeatherInBackground(context, showFeedback = false)
+    }
+
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         WeatherWidgetSyncHelper.schedule20MinAutoRefresh(context)
         for (appWidgetId in appWidgetIds) {
             updateWidget(context, appWidgetManager, appWidgetId)
         }
+        // 当桌面系统周期调度 onUpdate 时，顺便异步拉取一次最新天气
+        WeatherWidgetSyncHelper.fetchWeatherInBackground(context, showFeedback = false)
     }
 
     override fun onReceive(context: Context, intent: Intent) {

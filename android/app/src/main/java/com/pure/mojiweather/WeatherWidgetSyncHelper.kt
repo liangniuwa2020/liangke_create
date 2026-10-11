@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.util.Log
 import android.widget.RemoteViews
 import android.widget.Toast
@@ -104,14 +105,16 @@ object WeatherWidgetSyncHelper {
     /**
      * 在后台线程直接拉取气象数据，更新本地缓存并刷新全部桌面小部件
      * @param showFeedback 是否在桌面显示交互反馈（如点击小部件刷新时提示 Toast 与界面状态）
+     * @param onComplete 网络请求与小部件更新完毕后的回调（用于释放 WakeLock 或调度下次任务）
      */
-    fun fetchWeatherInBackground(context: Context, showFeedback: Boolean = true) {
+    fun fetchWeatherInBackground(context: Context, showFeedback: Boolean = true, onComplete: (() -> Unit)? = null) {
         if (isRefreshing) {
             if (showFeedback) {
                 Handler(Looper.getMainLooper()).post {
                     Toast.makeText(context, "正在更新天气，请稍候...", Toast.LENGTH_SHORT).show()
                 }
             }
+            onComplete?.invoke()
             return
         }
 
@@ -122,9 +125,17 @@ object WeatherWidgetSyncHelper {
             setWidgetsUpdatingState(context, "正在刷新...")
         }
 
+        // 获取短暂 WakeLock (最长 30 秒超时防泄漏)，防止系统休眠中断后台网络请求
+        val appContext = context.applicationContext
+        val powerManager = appContext.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "pure_moji:widget_refresh_lock")?.apply {
+            setReferenceCounted(false)
+            acquire(30000L)
+        }
+
         Thread {
             try {
-                val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 val lat = prefs.getFloat(KEY_LATITUDE, 28.6829f).toDouble()
                 val lon = prefs.getFloat(KEY_LONGITUDE, 115.8906f).toDouble()
                 val savedCity = prefs.getString(KEY_CITY_NAME, "南昌市") ?: "南昌市"
@@ -268,6 +279,12 @@ object WeatherWidgetSyncHelper {
                 }
             } finally {
                 isRefreshing = false
+                try {
+                    if (wakeLock?.isHeld == true) {
+                        wakeLock.release()
+                    }
+                } catch (_: Exception) {}
+                onComplete?.invoke()
             }
         }.start()
     }

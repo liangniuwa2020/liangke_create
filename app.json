@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "墨迹纯净天气",
-    "slug": "moji-weather-app",
+    "slug": "no-ad-weather",
     "version": "1.1.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

@@ -57,13 +57,13 @@
 
 项目位于本地路径：
 ```bash
-C:\Users\liangke\.gemini\antigravity\scratch\moji-weather-app
+E:\Antigravity ex_project\no-ad-weather
 ```
 
 ### 1. 启动移动端开发服务器 (Expo)
 进入项目目录后执行：
 ```bash
-cd C:\Users\liangke\.gemini\antigravity\scratch\moji-weather-app
+cd E:\Antigravity ex_project\no-ad-weather
 npm start
 ```
 - 控制台将展示一个交互式菜单及 **二维码 (QR Code)**。
@@ -94,7 +94,7 @@ npx eas-cli build -p android --profile preview
 ## 📱 核心目录结构
 
 ```
-moji-weather-app/
+no-ad-weather/
 ├── App.js                         # 应用主入口，负责整体状态流、下拉刷新与页面编排
 ├── app.json                       # Expo 与移动端原生配置文件
 ├── package.json                   # 项目依赖与运行脚本

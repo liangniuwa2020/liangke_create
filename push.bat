@@ -1,5 +1,5 @@
 @echo off
-cd /d "E:\Antigravity ex_project\moji-weather-app"
+cd /d "E:\Antigravity ex_project\no-ad-weather"
 echo ========================================================
 echo   Pushing code to GitHub: liangniuwa2020/liangke_create
 echo ========================================================

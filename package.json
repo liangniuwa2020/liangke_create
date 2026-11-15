@@ -1,6 +1,6 @@
 {
   "name": "no-ad-weather",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "main": "index.js",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.18",
@@ -23,7 +23,11 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/verify_refresh.js"
+    "test": "node scripts/verify_refresh.js",
+    "test:forecast": "node scripts/test_forecast_days.mjs",
+    "test:forecast:ui": "node --import ./scripts/register-render.mjs scripts/test_forecast_ui.mjs",
+    "test:app": "node --import ./scripts/register-render.mjs scripts/test_app_smoke.mjs",
+    "test:forecast:all": "npm run test:forecast && npm run test:forecast:ui && npm run test:app"
   },
   "devDependencies": {
     "eslint": "^9.39.5",

@@ -430,7 +430,7 @@ export default function App() {
               {/* 2. 24小时逐小时精准天气 */}
               <HourlyForecastCard hourly={weatherData.hourly} />
 
-              {/* 3. 7~15天超长趋势预报 - 点击某天查看详情 */}
+              {/* 3. 30天天气预报（前16天高精度 + 后14天季节趋势） - 点击某天查看详情 */}
               <DailyForecastCard
                 daily={weatherData.daily}
                 onPressDay={(day) => {
@@ -525,7 +525,7 @@ export default function App() {
             city={currentCity}
           />
 
-          {/* 7-15天单日天气详情弹窗 */}
+          {/* 30天逐日天气详情弹窗 */}
           <DailyDetailModal
             visible={isDailyDetailVisible}
             onClose={() => setIsDailyDetailVisible(false)}

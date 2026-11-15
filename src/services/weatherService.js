@@ -275,17 +275,101 @@ async function fetchWithTimeout(url, { timeoutMs = 12000, ...options } = {}) {
   }
 }
 
-// 统一请求实时全量天气数据 (Forecast + Air Quality)
+// 预报天数常量
+// Open-Meteo forecast 端点硬上限为 16 天（传 17 及以上直接 HTTP 400），
+// 所以「15 天预报」= forecast_days=16（含今天，今天 + 未来 15 天）。
+export const FORECAST_NEAR_DAYS = 16;
+// 17-30 天用 Open-Meteo Seasonal Forecast 端点补齐，总共展示 30 天。
+export const FORECAST_TOTAL_DAYS = 30;
+
+// 天气代码本身是否在描述降水（用于与降水概率自洽）
+// seasonal 端点的 weather_code 与 precipitation_sum 来自不同成员聚合，
+// 会出现「代码=毛毛雨、sum=0」的组合，此时概率不能直接给 0。
+function codeImpliesPrecipitation(code) {
+  return (
+    (code >= 51 && code <= 57) ||
+    (code >= 61 && code <= 67) ||
+    (code >= 71 && code <= 77) ||
+    (code >= 80 && code <= 82) ||
+    (code >= 85 && code <= 86) ||
+    (code >= 95 && code <= 99)
+  );
+}
+
+// 纯看天气代码时，最低应该给多少降水概率
+function rainProbFloorFromCode(code) {
+  if (code >= 95) return 70; // 雷暴
+  if (code >= 80 && code <= 82) return 55; // 阵雨
+  if (code >= 71 && code <= 77) return 50; // 雪
+  if (code === 56 || code === 57 || code === 66 || code === 67) return 40; // 冻雨
+  if (code >= 61 && code <= 65) return 55; // 雨
+  if (code >= 51 && code <= 55) return 35; // 毛毛雨
+  if (code >= 85 && code <= 86) return 50; // 阵雪
+  return 0;
+}
+
+// 由降水量反推降水概率（seasonal 端点不提供降水概率，只能这样估算）
+// 同时用天气代码兜底，避免出现「显示毛毛雨但降水概率 0%」的自相矛盾。
+export function estimateRainProbFromSum(sum, code) {
+  const v = Number(sum);
+  let prob = 0;
+  if (Number.isFinite(v) && v > 0) {
+    if (v >= 20) prob = 95;
+    else if (v >= 10) prob = 80;
+    else if (v >= 5) prob = 65;
+    else if (v >= 1) prob = 45;
+    else prob = 25;
+  }
+
+  const codeFloor = codeImpliesPrecipitation(code) ? rainProbFloorFromCode(code) : 0;
+  return Math.max(prob, codeFloor);
+}
+
+// seasonal 端点不提供紫外线指数，按「正午太阳高度角 + 云量折减」估算。
+// 不能只看天气代码：漠河 12 月的晴天 UV 也只有 1 左右，三亚同一天能到 7。
+// 正午太阳高度角正弦 = sin(lat)sin(dec) + cos(lat)cos(dec)，dec 为太阳赤纬。
+function estimateUvFromLatitudeAndDate(latitude, dateStr, code) {
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return 0;
+  const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
+  const declination = 23.44 * Math.sin((2 * Math.PI * (dayOfYear - 81)) / 365) * (Math.PI / 180);
+  const latRad = (Number(latitude) * Math.PI) / 180;
+  const sinElevation = Math.sin(latRad) * Math.sin(declination)
+    + Math.cos(latRad) * Math.cos(declination);
+  if (!(sinElevation > 0)) return 0;
+
+  // 晴空 UV 上限，经验拟合：三亚 11 月 ≈7、南昌 ≈5、漠河 12 月 ≈0.5
+  const clearSkyUv = 12 * Math.pow(sinElevation, 2.2);
+
+  // 云量/降水折减系数
+  let factor = 1;
+  if (code === 1) factor = 0.9;
+  else if (code === 2) factor = 0.8;
+  else if (code === 3) factor = 0.55;
+  else if (code === 45 || code === 48) factor = 0.45;
+  else if (code >= 51 && code <= 67) factor = 0.4;
+  else if (code >= 71 && code <= 86) factor = 0.5;
+  else if (code >= 95) factor = 0.35;
+
+  return Math.max(0, Math.round(clearSkyUv * factor));
+}
+
+// 统一请求实时全量天气数据 (Forecast + Air Quality + Seasonal 30 天趋势)
 export async function fetchCompleteWeather(latitude, longitude) {
-  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,pressure_msl,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max&timezone=auto`;
-  
+  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,pressure_msl,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max&forecast_days=${FORECAST_NEAR_DAYS}&timezone=auto`;
+
   const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${latitude}&longitude=${longitude}&current=us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone&timezone=auto`;
 
+  // 17-30 天趋势：季节尺度集合预报，只取聚合后可用且稳定的字段
+  const seasonalUrl = `https://seasonal-api.open-meteo.com/v1/seasonal?latitude=${latitude}&longitude=${longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,sunrise,sunset,relative_humidity_2m_mean,wind_speed_10m_max&forecast_days=${FORECAST_TOTAL_DAYS}&timezone=auto`;
+
   try {
-    const [weatherRes, aqiRes] = await Promise.all([
+    const [weatherRes, aqiRes, seasonalRes] = await Promise.all([
       fetchWithTimeout(weatherUrl, { timeoutMs: 12000 }).then(r => r.json()),
       // 空气质量允许降级：超时或失败都不阻塞主天气数据
       fetchWithTimeout(aqiUrl, { timeoutMs: 8000 }).then(r => r.json()).catch(() => null),
+      // 30 天趋势同样允许降级：拿不到就只显示 15 天，界面不报错
+      fetchWithTimeout(seasonalUrl, { timeoutMs: 14000 }).then(r => r.json()).catch(() => null),
     ]);
 
     if (!weatherRes || !weatherRes.current) {
@@ -326,30 +410,78 @@ export async function fetchCompleteWeather(latitude, longitude) {
       });
     }
 
-    // 处理 7-15 天预报
+    // 处理逐日预报：0-15 天用 forecast 端点（高精度），16-29 天用 seasonal 端点补齐
     const dailyList = [];
+    const seenDates = new Set();
+
+    const buildDayName = (date, index) => {
+      if (index === 0) return '今天';
+      if (index === 1) return '明天';
+      if (index === 2) return '后天';
+      return ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()];
+    };
+
     const dailyDays = (daily.time || []).length;
-    for (let i = 0; i < dailyDays; i++) {
+    for (let i = 0; i < dailyDays && dailyList.length < FORECAST_TOTAL_DAYS; i++) {
       const dateStr = daily.time[i];
       const date = new Date(dateStr);
-      let dayName = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()];
-      if (i === 0) dayName = '今天';
-      if (i === 1) dayName = '明天';
-      if (i === 2) dayName = '后天';
-
-      const code = daily.weather_code[i];
+      const index = dailyList.length;
+      const code = daily.weather_code ? daily.weather_code[i] : 0;
       const weather = getWeatherInfo(code, 1);
+      seenDates.add(dateStr);
       dailyList.push({
         dateStr,
-        dayName,
+        dayName: buildDayName(date, index),
         monthDay: `${date.getMonth() + 1}/${date.getDate()}`,
         maxTemp: Math.round(daily.temperature_2m_max[i]),
         minTemp: Math.round(daily.temperature_2m_min[i]),
         weather,
-        rainProb: daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : 0,
-        uvMax: daily.uv_index_max ? Math.round(daily.uv_index_max[i]) : 0,
-        sunrise: daily.sunrise ? daily.sunrise[i].slice(11, 16) : '06:00',
-        sunset: daily.sunset ? daily.sunset[i].slice(11, 16) : '18:30',
+        rainProb: daily.precipitation_probability_max && daily.precipitation_probability_max[i] != null
+          ? Math.round(daily.precipitation_probability_max[i])
+          : estimateRainProbFromSum(daily.precipitation_sum ? daily.precipitation_sum[i] : 0, code),
+        uvMax: daily.uv_index_max && daily.uv_index_max[i] != null
+          ? Math.round(daily.uv_index_max[i])
+          : estimateUvFromLatitudeAndDate(latitude, dateStr, code),
+        sunrise: daily.sunrise && daily.sunrise[i] ? daily.sunrise[i].slice(11, 16) : '06:00',
+        sunset: daily.sunset && daily.sunset[i] ? daily.sunset[i].slice(11, 16) : '18:30',
+        isExtended: false, // 标记为 16 天内的高精度预报
+      });
+    }
+
+    // 追加 17-30 天的季节尺度趋势（跳过已存在的日期与无效温度）
+    const seasonalDaily = (seasonalRes && seasonalRes.daily) || {};
+    const seasonalDays = (seasonalDaily.time || []).length;
+    for (let i = 0; i < seasonalDays && dailyList.length < FORECAST_TOTAL_DAYS; i++) {
+      const dateStr = seasonalDaily.time[i];
+      if (!dateStr || seenDates.has(dateStr)) continue;
+      const maxRaw = seasonalDaily.temperature_2m_max ? seasonalDaily.temperature_2m_max[i] : null;
+      const minRaw = seasonalDaily.temperature_2m_min ? seasonalDaily.temperature_2m_min[i] : null;
+      if (maxRaw == null || minRaw == null) continue;
+      const date = new Date(dateStr);
+      const index = dailyList.length;
+      const code = seasonalDaily.weather_code && seasonalDaily.weather_code[i] != null
+        ? seasonalDaily.weather_code[i]
+        : 3;
+      seenDates.add(dateStr);
+      dailyList.push({
+        dateStr,
+        dayName: buildDayName(date, index),
+        monthDay: `${date.getMonth() + 1}/${date.getDate()}`,
+        maxTemp: Math.round(maxRaw),
+        minTemp: Math.round(minRaw),
+        weather: getWeatherInfo(code, 1),
+        rainProb: estimateRainProbFromSum(
+          seasonalDaily.precipitation_sum ? seasonalDaily.precipitation_sum[i] : 0,
+          code
+        ),
+        uvMax: estimateUvFromLatitudeAndDate(latitude, dateStr, code),
+        sunrise: seasonalDaily.sunrise && seasonalDaily.sunrise[i]
+          ? seasonalDaily.sunrise[i].slice(11, 16)
+          : '06:00',
+        sunset: seasonalDaily.sunset && seasonalDaily.sunset[i]
+          ? seasonalDaily.sunset[i].slice(11, 16)
+          : '18:30',
+        isExtended: true, // 标记为超过 16 天的季节趋势预报
       });
     }
 

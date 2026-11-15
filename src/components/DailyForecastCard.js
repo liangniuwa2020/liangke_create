@@ -13,88 +13,114 @@ export default function DailyForecastCard({ daily = [], onPressDay }) {
   const globalMax = Math.max(...allMaxs);
   const totalSpan = Math.max(globalMax - globalMin, 1);
 
+  const nearCount = daily.filter(d => !d.isExtended).length;
+  const extendedCount = daily.length - nearCount;
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Ionicons name="calendar-outline" size={17} color="rgba(255, 255, 255, 0.9)" style={{ marginRight: 6 }} />
-          <Text style={styles.title}>7-15天趋势预报</Text>
+          <Text style={styles.title}>{daily.length}天天气预报</Text>
         </View>
         <Text style={styles.subtitle}>点击查看每日详情</Text>
+      </View>
+
+      {/* 天数摘要：前段高精度 + 后段季节趋势 */}
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryChip}>
+          <Ionicons name="analytics-outline" size={11} color="#60a5fa" style={{ marginRight: 4 }} />
+          <Text style={styles.summaryText}>近 {nearCount} 天精准预报</Text>
+        </View>
+        {extendedCount > 0 && (
+          <View style={[styles.summaryChip, styles.summaryChipDim]}>
+            <Ionicons name="trending-up-outline" size={11} color="#a78bfa" style={{ marginRight: 4 }} />
+            <Text style={[styles.summaryText, styles.summaryTextDim]}>后 {extendedCount} 天趋势</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.list}>
         {daily.map((item, index) => {
           const isToday = index === 0;
+          const showExtendedDivider = item.isExtended && (index === 0 || !daily[index - 1].isExtended);
 
           // 计算温度条的偏移与宽度百分比
           const leftPercent = Math.max(0, ((item.minTemp - globalMin) / totalSpan) * 100);
           const widthPercent = Math.max(18, (((item.maxTemp - item.minTemp) / totalSpan) * 100));
 
           return (
-            <TouchableOpacity
-              key={`daily-${item.dateStr}-${index}`}
-              style={[styles.dayRow, index !== daily.length - 1 && styles.borderBottom]}
-              onPress={() => onPressDay && onPressDay(item)}
-              activeOpacity={0.65}
-            >
-              {/* 日期列 */}
-              <View style={styles.dateCol}>
-                <Text style={[styles.dayName, isToday && styles.highlightText]}>
-                  {item.dayName}
-                </Text>
-                <Text style={styles.monthDay}>{item.monthDay}</Text>
-              </View>
-
-              {/* 天气状况与图标 */}
-              <View style={styles.weatherCol}>
-                <Ionicons
-                  name={item.weather.icon}
-                  size={20}
-                  color={item.weather.type === 'sunny' ? '#f39c12' : '#ffffff'}
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={styles.conditionText} numberOfLines={1}>
-                  {item.weather.label}
-                </Text>
-              </View>
-
-              {/* 降雨概率标签 */}
-              <View style={styles.rainCol}>
-                {item.rainProb > 0 ? (
-                  <View style={styles.rainBadge}>
-                    <Ionicons name="water" size={9} color="#60a5fa" />
-                    <Text style={styles.rainBadgeText}>{item.rainProb}%</Text>
-                  </View>
-                ) : null}
-              </View>
-
-              {/* 高低温及温度可视化进度条 */}
-              <View style={styles.tempRangeCol}>
-                <Text style={styles.minTempText}>{item.minTemp}°</Text>
-
-                {/* 可视化温度条轨道 */}
-                <View style={styles.barTrack}>
-                  <LinearGradient
-                    colors={['#5dade2', '#f39c12']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[
-                      styles.barFill,
-                      {
-                        left: `${leftPercent * 0.7}%`,
-                        width: `${Math.min(widthPercent, 100 - leftPercent * 0.7)}%`,
-                      },
-                    ]}
-                  />
+            <React.Fragment key={`daily-${item.dateStr}-${index}`}>
+              {showExtendedDivider && (
+                <View style={styles.sectionDivider}>
+                  <View style={styles.sectionLine} />
+                  <Text style={styles.sectionText}>以下为季节趋势预报（置信度较低，仅供参考）</Text>
+                  <View style={styles.sectionLine} />
+                </View>
+              )}
+              <TouchableOpacity
+                style={[styles.dayRow, index !== daily.length - 1 && styles.borderBottom]}
+                onPress={() => onPressDay && onPressDay(item)}
+                activeOpacity={0.65}
+              >
+                {/* 日期列 */}
+                <View style={styles.dateCol}>
+                  <Text style={[styles.dayName, isToday && styles.highlightText]}>
+                    {item.dayName}
+                  </Text>
+                  <Text style={styles.monthDay}>{item.monthDay}</Text>
                 </View>
 
-                <Text style={styles.maxTempText}>{item.maxTemp}°</Text>
-              </View>
+                {/* 天气状况与图标 */}
+                <View style={styles.weatherCol}>
+                  <Ionicons
+                    name={item.weather.icon}
+                    size={20}
+                    color={item.weather.type === 'sunny' ? '#f39c12' : '#ffffff'}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={styles.conditionText} numberOfLines={1}>
+                    {item.weather.label}
+                  </Text>
+                </View>
 
-              {/* 右箭头提示可点击 */}
-              <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.3)" style={{ marginLeft: 4 }} />
-            </TouchableOpacity>
+                {/* 降雨概率标签 */}
+                <View style={styles.rainCol}>
+                  {item.rainProb > 0 ? (
+                    <View style={styles.rainBadge}>
+                      <Ionicons name="water" size={9} color="#60a5fa" />
+                      <Text style={styles.rainBadgeText}>{item.rainProb}%</Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                {/* 高低温及温度可视化进度条 */}
+                <View style={styles.tempRangeCol}>
+                  <Text style={styles.minTempText}>{item.minTemp}°</Text>
+
+                  {/* 可视化温度条轨道 */}
+                  <View style={styles.barTrack}>
+                    <LinearGradient
+                      colors={['#5dade2', '#f39c12']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[
+                        styles.barFill,
+                        {
+                          left: `${leftPercent * 0.7}%`,
+                          width: `${Math.min(widthPercent, 100 - leftPercent * 0.7)}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  <Text style={styles.maxTempText}>{item.maxTemp}°</Text>
+                </View>
+
+                {/* 右箭头提示可点击 */}
+                <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.3)" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
+            </React.Fragment>
           );
         })}
       </View>
@@ -138,6 +164,48 @@ const styles = StyleSheet.create({
   },
   list: {
     width: '100%',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  summaryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(96, 165, 250, 0.16)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 9,
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  summaryChipDim: {
+    backgroundColor: 'rgba(167, 139, 250, 0.16)',
+  },
+  summaryText: {
+    fontSize: 10,
+    color: '#93c5fd',
+    fontWeight: '600',
+  },
+  summaryTextDim: {
+    color: '#c4b5fd',
+  },
+  sectionDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  sectionLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(167, 139, 250, 0.3)',
+  },
+  sectionText: {
+    fontSize: 10,
+    color: 'rgba(196, 181, 253, 0.85)',
+    marginHorizontal: 8,
   },
   dayRow: {
     flexDirection: 'row',

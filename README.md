@@ -20,8 +20,10 @@
    - 自动检测当前与未来 2 小时降水趋势（如：“未来两小时无降雨，蓝天开朗，适合出行”或“当前正在降雨，请带好雨具”）
 4. **24小时逐小时高精度预报**：
    - 横向流畅滑动查看未来 24 小时气温、天气图标、降水概率百分比与风速
-5. **7~15天超长趋势预报**：
-   - 包含多日天气图标、阴晴状况、降雨概率，独创**高低温相对区间渐变温度条**，温差变化一目了然
+5. **30 天天气预报（16 天精准 + 14 天季节趋势）**：
+   - 前 16 天取 Open-Meteo forecast 端点（该端点硬上限 16 天），逐日图标、阴晴状况、降雨概率、紫外线全部为实测值
+   - 后 14 天取 Open-Meteo Seasonal 端点补齐到 30 天，界面用「以下为季节趋势预报」分隔标注置信度
+   - 独创**高低温相对区间渐变温度条**，温差变化一目了然；点击任意一天查看完整详情并在 30 天之间横滑切换
 6. **空气质量 (AQI) 专属监测报告卡**：
    - US-AQI / 国标空气质量等级徽章（优/良/轻度污染/中度污染/重度污染/严重污染），App 与桌面小部件使用同一套六档阈值
    - 六大核心环境污染物监测数据网格：**PM2.5、PM10、O₃、NO₂、SO₂、CO**
@@ -157,12 +159,20 @@ npm run typecheck                     # tsc --noEmit
 npm run lint                          # expo lint（react-hooks / no-unused-vars 均为 error）
 npm test                              # 30 分钟自动刷新一致性检查（46 项断言）
 
+npm run test:forecast                 # 30 天预报数据层（真实请求 Open-Meteo，106 项断言）
+npm run test:forecast:ui              # 30 天预报 UI 渲染（真实渲染组件，30 项断言）
+npm run test:app                      # App 整页冒烟（整页渲染 + 30 行落地，10 项断言）
+npm run test:forecast:all             # 上面三项一起跑
+
 python test_widget_skin_verification.py                 # 校验 APK + 源码（需先构建）
 python test_widget_skin_verification.py --skip-apk      # 只校验源码与资源
 python test_widget_skin_verification.py --apk <apk路径> # 指定 APK
 ```
 
 - `npm test` 断言 App 内定时器、Kotlin 闹钟、Manifest 权限、三套 `info.xml` 的刷新周期全部统一为 30 分钟，且不存在 20 分钟的旧实现。
+- `npm run test:forecast` 真实请求 Open-Meteo，对南昌/北京/漠河/三亚四地核对：30 条逐日数据、16 天精准段 + 14 天趋势段、日期逐日连续无重复、温度/降水概率/紫外线/日出日落全部有效，并把前 16 天与官方 forecast、后 14 天与官方 seasonal 逐日数值交叉比对，防止合并错位。
+- `npm run test:forecast:ui` 用 `react-dom/server` 真实渲染 `DailyForecastCard` 与 `DailyDetailModal`（RN 模块走 `scripts/stubs/` 桩），断言 30 行日期全部出现在 DOM、15 天数据渲染 15 行、30 天逐天切换都能正确展示。
+- `npm run test:app` 把整个 `App.js` 渲染一遍，确认 30 天改动没有破坏整页渲染链路、加载态不出现空预报区、30 天卡片能落地 30 行。
 - `test_widget_skin_verification.py` 断言换肤资源、换肤广播、AQI 六档一致性、更新时间格式化幂等、未使用权限已移除、小部件选择器预览图等；在源码上即可运行，便于 CI 前置拦截。
 
 ---
@@ -175,6 +185,10 @@ no-ad-weather/
 ├── app.json                       # Expo 配置文件
 ├── package.json                   # 项目依赖与运行脚本
 ├── scripts/verify_refresh.js      # 30 分钟刷新一致性断言脚本
+├── scripts/test_forecast_days.mjs # 30 天预报数据层功能测试（真实请求）
+├── scripts/test_forecast_ui.mjs   # 30 天预报 UI 渲染功能测试（react-dom/server）
+├── scripts/render-loader.mjs      # JSX 转换 + React Native 桩的模块加载器
+├── scripts/stubs/                 # 测试用的 react-native / expo-* 桩实现
 ├── test_widget_skin_verification.py
 ├── android/                       # 原生工程（CNG 之外的手工维护目录）
 │   ├── keystore.properties.example
@@ -193,7 +207,7 @@ no-ad-weather/
         ├── HeaderBar.js           # 顶部城市状态、定位切换与无广告徽章
         ├── CurrentWeatherCard.js  # 核心大字温度、天气状况、短时降水出行横幅
         ├── HourlyForecastCard.js  # 24小时逐小时预报与降雨概率
-        ├── DailyForecastCard.js   # 7~15天趋势预报与高低温可视化色带
+        ├── DailyForecastCard.js   # 30天预报（16天精准+14天趋势）与高低温可视化色带
         ├── AirQualityCard.js      # 空气质量 AQI 刻度表与 6 大污染物指标
         ├── LivingIndicesCard.js   # 8 大生活指数与详情弹窗
         ├── WeatherDetailsGrid.js  # 深度传感器指标网格（风力/气压/湿度/日出日落）

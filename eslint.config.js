@@ -10,9 +10,10 @@ module.exports = defineConfig([
   },
   {
     // 构建/校验脚本运行在 Node.js 环境，需要 __dirname 等 Node 全局变量
-    files: ['scripts/**/*.js', '*.config.js'],
+    files: ['scripts/**/*.js', 'scripts/**/*.mjs', '*.config.js'],
     languageOptions: {
       globals: globals.node,
+      sourceType: 'module',
     },
   },
   {
@@ -43,9 +44,17 @@ module.exports = defineConfig([
   },
   {
     // 校验脚本本身是命令行工具，日志就是它的输出
-    files: ['scripts/**/*.js'],
+    files: ['scripts/**/*.js', 'scripts/**/*.mjs'],
     rules: {
       'no-console': 'off',
+    },
+  },
+  {
+    // 测试用 React Native 桩：forwardRef 包裹函数组件 + 手工 displayName，
+    // react/display-name 会对这类动态创建的桩组件误报。
+    files: ['scripts/stubs/**/*.mjs'],
+    rules: {
+      'react/display-name': 'off',
     },
   },
   {

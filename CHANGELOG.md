@@ -1,5 +1,31 @@
 # 无广告天气 (No Ad Weather) - 更新日志
 
+## [v1.2.4] - 2026-11-15
+
+本轮修复「7-15 天预报实际只有 6-7 天」的问题，并把逐日预报扩展到 30 天。
+
+### 📅 逐日预报天数（核心）
+- **根因**：`weatherService.js` 的 Open-Meteo forecast 请求没有传 `forecast_days`，该接口默认只返回 7 天，所以标题写着「7-15天」，实际只有 6-7 行数据。
+- **15 天**：forecast 请求显式传 `forecast_days=16`（含今天即「今天 + 未来 15 天」）。实测该端点硬上限为 16 天，传 17 及以上会直接 HTTP 400。
+- **30 天**：新增 Open-Meteo Seasonal Forecast 端点 `seasonal-api.open-meteo.com/v1/seasonal`，补齐第 17-30 天。
+  - 该端点不提供 `precipitation_probability_max` 与 `uv_index_max`，因此降水概率由 `precipitation_sum` 反推，紫外线按「正午太阳高度角 + 云量折减」估算（不能只看天气代码，否则漠河 12 月会算出 UV7 这种物理不可能值）。
+  - seasonal 请求失败时静默降级为只显示 16 天，不影响主天气数据。
+- 两个端点按日期合并：用 `seenDates` 去重、按 `dailyList.length` 连续编号，保证「今天/明天/后天」跨端点不错位。
+
+### 🎨 界面
+- `DailyForecastCard` 标题由写死的「7-15天趋势预报」改为动态 `{daily.length}天天气预报`。
+- 新增两枚摘要 chip：「近 16 天精准预报」/「后 14 天趋势」。
+- 精准段与趋势段之间插入分隔提示「以下为季节趋势预报（置信度较低，仅供参考）」。
+- 每条数据带 `isExtended` 标记，详情弹窗的 30 天横滑切换全部可用。
+
+### 🧪 新增功能测试（本次交付的关键证据）
+- `scripts/test_forecast_days.mjs`（`npm run test:forecast`）：真实请求 Open-Meteo，南昌/北京/漠河/三亚四地共 **106 项断言** —— 30 条数据、16+14 分段、日期逐日连续无重复、温度/降水概率/紫外线/日出日落有效、前 16 天与官方 forecast 及后 14 天与官方 seasonal 逐日数值交叉比对、UV 纬度合理性、以及 current/today/hourly/aqi/livingIndices 未被破坏。
+- `scripts/test_forecast_ui.mjs`（`npm run test:forecast:ui`）：用 `react-dom/server` 真实渲染组件，**30 项断言** —— 30 行日期全部进入 DOM、15 天数据渲染 15 行且无趋势提示、空数据/单日不崩、30 天逐天在详情弹窗都能正确展示。
+- 配套 `scripts/render-loader.mjs` + `scripts/stubs/`（react-native / safe-area / linear-gradient / vector-icons / async-storage 桩），让 RN 组件可以在 Node 里被真实渲染。
+
+### 🔖 版本
+- versionCode 12 → 13，versionName 1.2.3 → 1.2.4。
+
 ## [v1.2.3] - 2026-11-15
 
 本轮为「全面体检 + 修复」版本，针对代码审计发现的 24 项问题逐条处理。

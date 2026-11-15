@@ -159,7 +159,7 @@ npm run typecheck                     # tsc --noEmit
 npm run lint                          # expo lint（react-hooks / no-unused-vars 均为 error）
 npm test                              # 30 分钟自动刷新一致性检查（46 项断言）
 
-npm run test:forecast                 # 30 天预报数据层（真实请求 Open-Meteo，106 项断言）
+npm run test:forecast                 # 30 天预报数据层（真实请求 Open-Meteo，110 项断言）
 npm run test:forecast:ui              # 30 天预报 UI 渲染（真实渲染组件，30 项断言）
 npm run test:app                      # App 整页冒烟（整页渲染 + 30 行落地，10 项断言）
 npm run test:forecast:all             # 上面三项一起跑

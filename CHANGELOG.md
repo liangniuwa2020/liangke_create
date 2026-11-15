@@ -19,7 +19,7 @@
 - 每条数据带 `isExtended` 标记，详情弹窗的 30 天横滑切换全部可用。
 
 ### 🧪 新增功能测试（本次交付的关键证据）
-- `scripts/test_forecast_days.mjs`（`npm run test:forecast`）：真实请求 Open-Meteo，南昌/北京/漠河/三亚四地共 **106 项断言** —— 30 条数据、16+14 分段、日期逐日连续无重复、温度/降水概率/紫外线/日出日落有效、前 16 天与官方 forecast 及后 14 天与官方 seasonal 逐日数值交叉比对、UV 纬度合理性、以及 current/today/hourly/aqi/livingIndices 未被破坏。
+- `scripts/test_forecast_days.mjs`（`npm run test:forecast`）：真实请求 Open-Meteo，南昌/北京/漠河/三亚四地共 **110 项断言** —— 30 条数据、16+14 分段、日期逐日连续无重复、温度/降水概率/紫外线/日出日落有效、降水类天气与降水概率自洽、前 16 天与官方 forecast 及后 14 天与官方 seasonal 逐日数值交叉比对、UV 纬度合理性、以及 current/today/hourly/aqi/livingIndices 未被破坏。
 - `scripts/test_forecast_ui.mjs`（`npm run test:forecast:ui`）：用 `react-dom/server` 真实渲染组件，**30 项断言** —— 30 行日期全部进入 DOM、15 天数据渲染 15 行且无趋势提示、空数据/单日不崩、30 天逐天在详情弹窗都能正确展示。
 - 配套 `scripts/render-loader.mjs` + `scripts/stubs/`（react-native / safe-area / linear-gradient / vector-icons / async-storage 桩），让 RN 组件可以在 Node 里被真实渲染。
 

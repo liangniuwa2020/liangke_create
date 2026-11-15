@@ -20,12 +20,12 @@ class WeatherWidget4x1Provider : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        WeatherWidgetSyncHelper.schedule20MinAutoRefresh(context)
+        WeatherWidgetSyncHelper.scheduleAutoRefresh(context)
         WeatherWidgetSyncHelper.fetchWeatherInBackground(context, showFeedback = false)
     }
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        WeatherWidgetSyncHelper.schedule20MinAutoRefresh(context)
+        WeatherWidgetSyncHelper.scheduleAutoRefresh(context)
         for (appWidgetId in appWidgetIds) {
             updateWidget(context, appWidgetManager, appWidgetId)
         }

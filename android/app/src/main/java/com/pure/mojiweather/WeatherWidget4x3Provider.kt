@@ -20,12 +20,12 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        WeatherWidgetSyncHelper.schedule20MinAutoRefresh(context)
+        WeatherWidgetSyncHelper.scheduleAutoRefresh(context)
         WeatherWidgetSyncHelper.fetchWeatherInBackground(context, showFeedback = false)
     }
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        WeatherWidgetSyncHelper.schedule20MinAutoRefresh(context)
+        WeatherWidgetSyncHelper.scheduleAutoRefresh(context)
         for (appWidgetId in appWidgetIds) {
             updateWidget(context, appWidgetManager, appWidgetId)
         }
@@ -156,7 +156,7 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
             var windInfo = "微风 2级"
             var humidityInfo = "湿度 48%"
             var airDesc = "体感舒适"
-            var updateTime = SimpleDateFormat("HH:mm 更新", Locale.CHINA).format(Date())
+            var updateTime = SimpleDateFormat("HH:mm", Locale.CHINA).format(Date())
 
 
             var forecastArr: org.json.JSONArray? = null
@@ -195,7 +195,7 @@ class WeatherWidget4x3Provider : AppWidgetProvider() {
 
             // 5. 绑定头部与指标数据
             views.setTextViewText(R.id.widget_city_name, cityName)
-            views.setTextViewText(R.id.widget_update_time, updateTime)
+            views.setTextViewText(R.id.widget_update_time, WeatherWidgetSyncHelper.formatUpdateTimeLabel(updateTime))
             views.setTextViewText(R.id.widget_date_label, currentDateStr)
             views.setTextViewText(R.id.widget_temperature, tempStr)
             views.setTextViewText(R.id.widget_weather_desc, weatherDesc)

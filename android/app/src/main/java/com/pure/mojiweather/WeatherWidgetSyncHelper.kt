@@ -33,8 +33,9 @@ object WeatherWidgetSyncHelper {
     const val KEY_WIDGET_SKIN = "widget_skin_type" // "dark" | "white" | "glass"
     const val ACTION_SWITCH_WIDGET_SKIN = "com.pure.mojiweather.ACTION_SWITCH_WIDGET_SKIN"
 
-    const val ACTION_AUTO_REFRESH_20MIN = "com.pure.mojiweather.ACTION_AUTO_REFRESH_20MIN"
-    private const val REFRESH_INTERVAL_MILLIS = 20 * 60 * 1000L // 20 分钟
+    const val ACTION_AUTO_REFRESH_30MIN = "com.pure.mojiweather.ACTION_AUTO_REFRESH_30MIN"
+    private const val REFRESH_INTERVAL_MILLIS = 30 * 60 * 1000L // 30 分钟
+    private const val ALARM_REQUEST_CODE = 10030
 
     @Volatile
     private var isRefreshing = false
@@ -70,36 +71,61 @@ object WeatherWidgetSyncHelper {
     }
 
     /**
-     * 启动或校准 20 分钟后台自动刷新闹钟 (支持低电耗模式下唤醒执行)
+     * 启动或校准 30 分钟后台自动刷新闹钟。
+     *
+     * Android 12 (API 31) 之后，没有 SCHEDULE_EXACT_ALARM 授权时调用
+     * setExactAndAllowWhileIdle 会直接抛 SecurityException，此时降级为
+     * setAndAllowWhileIdle，牺牲精确性换取「一定能刷新」。
      */
-    fun schedule20MinAutoRefresh(context: Context) {
+    fun scheduleAutoRefresh(context: Context) {
         try {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val intent = Intent(context, WeatherWidgetAutoRefreshReceiver::class.java).apply {
-                action = ACTION_AUTO_REFRESH_20MIN
+                action = ACTION_AUTO_REFRESH_30MIN
             }
             val pendingIntent = PendingIntent.getBroadcast(
-                context, 10020, intent,
+                context, ALARM_REQUEST_CODE, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             val triggerAtMillis = System.currentTimeMillis() + REFRESH_INTERVAL_MILLIS
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+
+            val canScheduleExact = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                alarmManager.canScheduleExactAlarms()
+            } else {
+                true
+            }
+
+            if (canScheduleExact) {
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerAtMillis,
                     pendingIntent
                 )
+                Log.d(TAG, "Scheduled exact 30-min auto refresh alarm at $triggerAtMillis")
             } else {
-                alarmManager.setExact(
+                // 无精确闹钟权限：降级为允许 Doze 期间唤醒的非精确闹钟
+                alarmManager.setAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerAtMillis,
                     pendingIntent
                 )
+                Log.w(TAG, "No exact-alarm permission, downgraded to setAndAllowWhileIdle at $triggerAtMillis")
             }
-            Log.d(TAG, "Scheduled 20-min auto refresh alarm at $triggerAtMillis")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to schedule auto refresh", e)
         }
+    }
+
+    /**
+     * 统一的更新时间展示：只保存 HH:mm，后缀由界面侧集中拼接。
+     * 本函数幂等 —— 传入值已带「更新」时不会重复追加，
+     * 传入空值或「刚刚更新」时也不会拼出「刚刚更新 更新」。
+     */
+    fun formatUpdateTimeLabel(raw: String?): String {
+        val text = (raw ?: "").trim()
+        if (text.isEmpty()) return "刚刚更新"
+        if (text.endsWith("更新")) return text
+        return "$text 更新"
     }
 
     /**
@@ -140,13 +166,15 @@ object WeatherWidgetSyncHelper {
                 val lon = prefs.getFloat(KEY_LONGITUDE, 115.8906f).toDouble()
                 val savedCity = prefs.getString(KEY_CITY_NAME, "南昌市") ?: "南昌市"
 
+                val ua = "NoAdWeather/${appVersion(appContext)}"
+
                 // 2. HTTP 请求 Open-Meteo 实时预报接口
                 val weatherUrlStr = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,weather_code,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto"
-                val weatherJsonStr = httpGet(weatherUrlStr)
+                val weatherJsonStr = httpGet(weatherUrlStr, ua)
 
                 // 3. HTTP 请求 Open-Meteo 空气质量接口
                 val aqiUrlStr = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&current=us_aqi&timezone=auto"
-                val aqiJsonStr = try { httpGet(aqiUrlStr) } catch (_: Exception) { null }
+                val aqiJsonStr = try { httpGet(aqiUrlStr, ua) } catch (_: Exception) { null }
 
                 if (!weatherJsonStr.isNullOrEmpty()) {
                     val weatherObj = JSONObject(weatherJsonStr)
@@ -168,7 +196,7 @@ object WeatherWidgetSyncHelper {
                     val windDir = currentObj?.optDouble("wind_direction_10m", 0.0) ?: 0.0
                     val windInfo = formatWind(windDir, windSpeed)
 
-                    // 空气质量 (AQI)
+                    // 空气质量 (AQI)：六档，与 JS 侧 getAqiLevel 完全一致
                     var aqi = 32
                     if (!aqiJsonStr.isNullOrEmpty()) {
                         try {
@@ -179,17 +207,18 @@ object WeatherWidgetSyncHelper {
                     val aqiLevel = when {
                         aqi <= 50 -> "优"
                         aqi <= 100 -> "良"
-                        aqi <= 150 -> "轻度"
-                        aqi <= 200 -> "中度"
-                        else -> "重度"
+                        aqi <= 150 -> "轻度污染"
+                        aqi <= 200 -> "中度污染"
+                        aqi <= 300 -> "重度污染"
+                        else -> "严重污染"
                     }
 
-                    val nowTimeStr = SimpleDateFormat("HH:mm 更新", Locale.CHINA).format(Date())
+                    // 只保存 HH:mm，界面侧统一拼接「更新」后缀
+                    val nowTimeStr = SimpleDateFormat("HH:mm", Locale.CHINA).format(Date())
 
                     // 构造 7 天预测
                     val forecast7d = JSONArray()
                     val dayNames = arrayOf("今天", "明天", "后天")
-                    val calendar = Calendar.getInstance()
                     val weekDays = arrayOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
                     val dailyCodes = dailyObj?.optJSONArray("weather_code")
                     val dailyMaxs = dailyObj?.optJSONArray("temperature_2m_max")
@@ -213,17 +242,24 @@ object WeatherWidgetSyncHelper {
                         forecast7d.put(itemObj)
                     }
 
-                    // 构造 24 小时预测
+                    // 构造 24 小时预测：必须按 current.time 的小时值对齐 hourly 数组，
+                    // 否则 hourly[0] 永远是 00:00，时间与温度会整体错位。
                     val hourly24 = JSONArray()
                     val hourlyTemps = hourlyObj?.optJSONArray("temperature_2m")
                     val hourlyCodes = hourlyObj?.optJSONArray("weather_code")
-                    val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+                    val currentTimeStr = currentObj?.optString("time", "") ?: ""
+                    val hourlyStartIndex = if (currentTimeStr.length >= 13) {
+                        currentTimeStr.substring(11, 13).toIntOrNull() ?: 0
+                    } else {
+                        Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+                    }
                     for (i in 0 until 24) {
                         val hObj = JSONObject()
-                        val targetHour = (currentHour + i) % 24
+                        val sourceIdx = hourlyStartIndex + i
+                        val targetHour = (hourlyStartIndex + i) % 24
                         hObj.put("time", if (i == 0) "现在" else String.format(Locale.CHINA, "%02d:00", targetHour))
-                        hObj.put("temp", hourlyTemps?.optDouble(i, 22.0)?.toInt() ?: 22)
-                        val hCode = hourlyCodes?.optInt(i, 0) ?: 0
+                        hObj.put("temp", hourlyTemps?.optDouble(sourceIdx, 22.0)?.toInt() ?: 22)
+                        val hCode = hourlyCodes?.optInt(sourceIdx, 0) ?: 0
                         val isDayHour = targetHour in 6..18
                         val (_, hType) = mapWmoCode(hCode, isDayHour)
                         hObj.put("type", hType)
@@ -324,24 +360,40 @@ object WeatherWidgetSyncHelper {
         }
     }
 
-    private fun httpGet(urlStr: String): String? {
-        val url = URL(urlStr)
-        val conn = url.openConnection() as HttpURLConnection
-        conn.requestMethod = "GET"
-        conn.connectTimeout = 9000
-        conn.readTimeout = 9000
-        conn.setRequestProperty("User-Agent", "MojiWeatherPure/1.1.9")
-        if (conn.responseCode == HttpURLConnection.HTTP_OK) {
-            val reader = BufferedReader(InputStreamReader(conn.inputStream))
-            val sb = StringBuilder()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                sb.append(line)
-            }
-            reader.close()
-            return sb.toString()
+    /**
+     * 读取安装包真实 versionName，避免 UA 里的版本号与构建版本脱节。
+     */
+    private fun appVersion(context: Context): String {
+        return try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown"
+        } catch (_: Exception) {
+            "unknown"
         }
-        return null
+    }
+
+    private fun httpGet(urlStr: String, userAgent: String): String? {
+        var conn: HttpURLConnection? = null
+        try {
+            val url = URL(urlStr)
+            conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 9000
+            conn.readTimeout = 9000
+            conn.setRequestProperty("User-Agent", userAgent)
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                BufferedReader(InputStreamReader(conn.inputStream)).use { reader ->
+                    val sb = StringBuilder()
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        sb.append(line)
+                    }
+                    return sb.toString()
+                }
+            }
+            return null
+        } finally {
+            conn?.disconnect()
+        }
     }
 
     private fun mapWmoCode(code: Int, isDay: Boolean): Pair<String, String> {

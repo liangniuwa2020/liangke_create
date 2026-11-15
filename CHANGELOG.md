@@ -1,5 +1,53 @@
-# 墨迹天气纯净版 (Moji Weather Pure) - 更新日志
+# 无广告天气 (No Ad Weather) - 更新日志
 
+## [v1.2.3] - 2026-11-15
+
+本轮为「全面体检 + 修复」版本，针对代码审计发现的 24 项问题逐条处理。
+
+### 🔐 发布签名（P0）
+- **release 不再使用 debug 证书**：新增 `signingConfigs.release`，从 `android/keystore.properties` 读取正式 keystore；缺少该文件时 `assembleRelease` 直接抛 `GradleException` 中止。
+- 新增 `android/keystore.properties.example` 模板与 README 生成流程（keytool 命令、口令字段、备份提醒）。
+- 实测签名证书由 `CN=Android Debug` 变为 `CN=No Ad Weather, O=Pure Weather Studio`。
+
+### 📦 体积与构建（P0）
+- 开启 R8 代码混淆与资源裁剪（`enableMinifyInReleaseBuilds` / `enableShrinkResourcesInReleaseBuilds`），补齐 `proguard-rules.pro` 中 `com.pure.mojiweather.**` 与 `AppWidgetProvider` 的 keep 规则。
+- ABI 从 4 套裁剪为 `arm64-v8a,armeabi-v7a`；模拟器改用 `-PreactNativeArchitectures=x86_64` 临时覆盖。
+- Gradle 内存与并行度重配：`-Xmx2048m`、`parallel=true`、`workers.max=4`、`caching=true`；移除写死的 `org.gradle.java.home` 与调试残留 `EX_DEV_CLIENT_NETWORK_INSPECTOR`。
+- **APK 体积：68.94 MB → 33.14 MB（降 52%）**，`classes.dex` 由 2 个合并为 1 个。
+
+### 🐞 网络与刷新可靠性（P0/P1）
+- `weatherService.js` 三处裸 `fetch` 全部改为 `fetchWithTimeout`（天气 12s、AQI 8s、地名 8s），弱网不再无限 loading。
+- 修复下拉刷新在 GPS 位置变化分支提前收起指示器的问题：统一走 `loadWeather` 后再 `setRefreshing(false)`。
+- 首启城市列表不再出现两条「南昌」（`NANCHANG_DEFAULT` 与 `DEFAULT_CITIES[0]` 去重）。
+- `LocationModule` 增加坐标时效校验：缓存位置超过 10 分钟即丢弃，改用实时定位；定位超时 / 定位服务关闭时在 JS 侧给出明确告警。
+
+### 🎨 小部件与文案一致性（P1）
+- AQI 分档在 Kotlin 侧由 5 档补齐为与 JS 一致的 6 档（含「严重污染」）。
+- 新增 `formatUpdateTimeLabel()` 幂等格式化，彻底消除「刚刚更新 更新」双后缀。
+- 三套小部件 `info.xml` 补充 `previewLayout`，系统选择器终于有预览图。
+- 小部件工坊在天气数据未就绪时不再空白，改为展示皮肤预览 + 提示条。
+
+### 🛡️ 权限与隐私（P1）
+- 移除 4 个零引用权限：`SYSTEM_ALERT_WINDOW`、`VIBRATE`、`READ_EXTERNAL_STORAGE`、`WRITE_EXTERNAL_STORAGE`；并用 `tools:node="remove"` 阻止 `expo.modules.filesystem` 在清单合并阶段把它们注回。
+- `allowBackup="false"`，新增 `data_extraction_rules.xml` 与 `backup_rules.xml`，城市与皮肤不再进云备份。
+- `WeatherWidgetAutoRefreshReceiver` 改为 `exported="false"`，删除遗留的 `ACTION_AUTO_REFRESH_20MIN`，第三方 App 无法再伪造广播触发网络刷新。
+
+### 🏷️ 品牌统一
+- 应用名、三套小部件名、系统内 `app_name` 统一为「无广告天气」，`aapt2` 实测 APK label 已从「墨迹纯净天气」变为「无广告天气」。
+- 清理源码、README、CHANGELOG 与界面文案中全部对标品牌表述。
+- 新增「纯净承诺」入口：`AboutCleanModal` 此前没有任何打开路径。
+
+### 🧹 工程卫生（P2）
+- `.gitignore` 新增 `*.apk` / `*.aab` / `*.exe` / `keystore.properties` / `release.keystore` 规则。
+- `.git` 历史重写：清除 21 个历史 APK/EXE 对象，仓库从 466.8 MB 降至 3.7 MB。
+- `tsconfig.json`、`eslint.config.js`、`scripts/verify_refresh.js`、`scripts/` 等关键文件纳入版本管理。
+- ESLint 收紧：`react-hooks/exhaustive-deps`、`react-hooks/rules-of-hooks` 改为 error，`no-unused-vars` 恢复为 error。
+- 依赖对齐：补装 `expo-font` 直接依赖；`expo` 升至 ~57.0.33、`@expo/metro-runtime` 升至 ~57.0.18。
+
+### ✅ 回归
+- `npx tsc --noEmit`、`npx eslint .`、`node scripts/verify_refresh.js`（46 项）、`python test_widget_skin_verification.py --apk`（52 项）全部通过。
+
+---
 ## [v1.1.9] - 2026-10-06
 ### ⏱️ 20 分钟全自动天气刷新体系
 - **前后台双通道 20 分钟刷新**：

@@ -30,15 +30,17 @@ export default function CityManageModal({
 
   // 防抖搜索
   useEffect(() => {
-    if (!keyword.trim()) {
-      setSearchResults([]);
-      return;
+    const trimmed = keyword.trim();
+    if (!trimmed) {
+      // 用 setTimeout(0) 让清空动作离开 effect 同步执行阶段，避免级联渲染告警
+      const clearTimer = setTimeout(() => setSearchResults([]), 0);
+      return () => clearTimeout(clearTimer);
     }
 
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const results = await searchCities(keyword);
+        const results = await searchCities(trimmed);
         setSearchResults(results);
       } catch (e) {
         console.error(e);

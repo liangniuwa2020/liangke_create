@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 11 及以下的备份规则（dataExtractionRules 只在 12+ 生效）。
+  与 data_extraction_rules.xml 保持一致：不备份本地城市与皮肤等位置相关偏好。
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="MojiWeatherWidgetPrefs.xml" />
+    <exclude domain="database" path="RKStorage" />
+    <exclude domain="database" path="RKStorage-wal" />
+    <exclude domain="database" path="RKStorage-shm" />
+    <exclude domain="root" path="." />
+</full-backup-content>

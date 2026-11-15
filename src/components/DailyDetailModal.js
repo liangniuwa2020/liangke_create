@@ -29,7 +29,7 @@ function getRainDesc(prob) {
 }
 
 // 根据天气类型决定渐变色方案
-function getGradientColors(weatherType, isDay) {
+function getGradientColors(weatherType) {
   switch (weatherType) {
     case 'sunny': return ['#1a3a6b', '#2563eb', '#0ea5e9'];
     case 'cloudy': return ['#1e293b', '#334155', '#475569'];
@@ -75,7 +75,7 @@ export default function DailyDetailModal({ visible, onClose, day, allDays = [], 
 
   const uvInfo = getUvDesc(day.uvMax || 0);
   const rainDesc = getRainDesc(day.rainProb || 0);
-  const gradientColors = getGradientColors(day.weather?.type, true);
+  const gradientColors = getGradientColors(day.weather?.type);
   const weatherIcon = getWeatherIcon(day.weather?.type);
   const weatherIconColor = getWeatherIconColor(day.weather?.type);
 

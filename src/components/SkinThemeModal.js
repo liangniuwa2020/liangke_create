@@ -26,7 +26,7 @@ export default function SkinThemeModal({
                 <Ionicons name="color-palette" size={20} color="#3b82f6" />
               </View>
               <View>
-                <Text style={styles.title}>墨迹皮肤中心</Text>
+                <Text style={styles.title}>主题皮肤中心</Text>
                 <Text style={styles.subtitle}>随心选择心仪的天空视觉皮肤</Text>
               </View>
             </View>

@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const STORAGE_SKIN_KEY = '@pure_moji_weather_skin_id';
 
-// 墨迹全天气专属皮肤体系
+// 全天气专属皮肤体系
 export const SKINS = [
   {
     id: 'auto',
@@ -98,7 +98,7 @@ export async function loadSelectedSkin() {
   try {
     const val = await AsyncStorage.getItem(STORAGE_SKIN_KEY);
     return val || 'auto';
-  } catch (err) {
+  } catch (_err) {
     return 'auto';
   }
 }

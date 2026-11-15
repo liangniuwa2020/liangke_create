@@ -12,7 +12,7 @@ export default function LivingIndicesCard({ indices = [] }) {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Ionicons name="compass-outline" size={17} color="rgba(255, 255, 255, 0.9)" style={{ marginRight: 6 }} />
-          <Text style={styles.title}>墨迹生活指数</Text>
+          <Text style={styles.title}>生活指数</Text>
         </View>
         <Text style={styles.subtitle}>贴心出行与健康指南</Text>
       </View>

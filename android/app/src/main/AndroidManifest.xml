@@ -4,10 +4,18 @@
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
   <uses-permission android:name="android.permission.WAKE_LOCK"/>
-  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" tools:replace="android:maxSdkVersion"/>
-  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
-  <uses-permission android:name="android.permission.VIBRATE"/>
-  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" tools:replace="android:maxSdkVersion"/>
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+  <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+  <!--
+    已移除 4 个从未使用的权限：SYSTEM_ALERT_WINDOW / VIBRATE /
+    READ_EXTERNAL_STORAGE / WRITE_EXTERNAL_STORAGE（代码零引用，
+    只会放大授权弹窗与上架审核风险）。
+    下面两条 tools:node="remove" 是必须的：expo.modules.filesystem 的
+    manifest 会在合并阶段把这两个存储权限重新注回来，只有显式 remove
+    才能保证它们不出现在最终 APK 里。
+  -->
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove"/>
   <queries>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
@@ -15,7 +23,7 @@
       <data android:scheme="https"/>
     </intent>
   </queries>
-  <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="true" android:theme="@style/AppTheme" android:supportsRtl="true" android:enableOnBackInvokedCallback="false">
+  <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:fullBackupContent="@xml/backup_rules" android:theme="@style/AppTheme" android:supportsRtl="true" android:enableOnBackInvokedCallback="false">
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.ENABLE_BSDIFF_PATCH_SUPPORT" android:value="true"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
@@ -27,7 +35,7 @@
       </intent-filter>
     </activity>
 
-    <!-- 4x3 墨迹综合天气桌面小部件 -->
+    <!-- 4x3 综合天气桌面小部件（桌面宿主必须能调起，故 exported=true） -->
     <receiver
         android:name=".WeatherWidget4x3Provider"
         android:label="@string/widget_4x3_name"
@@ -42,7 +50,7 @@
           android:resource="@xml/weather_widget_4x3_info"/>
     </receiver>
 
-    <!-- 4x2 墨迹逐时天气桌面小部件 -->
+    <!-- 4x2 逐时天气桌面小部件（桌面宿主必须能调起，故 exported=true） -->
     <receiver
         android:name=".WeatherWidget4x2Provider"
         android:label="@string/widget_4x2_name"
@@ -57,7 +65,7 @@
           android:resource="@xml/weather_widget_4x2_info"/>
     </receiver>
 
-    <!-- 4x1 墨迹精简时钟天气桌面小部件 -->
+    <!-- 4x1 精简时钟天气桌面小部件（桌面宿主必须能调起，故 exported=true） -->
     <receiver
         android:name=".WeatherWidget4x1Provider"
         android:label="@string/widget_4x1_name"
@@ -72,12 +80,17 @@
           android:resource="@xml/weather_widget_4x1_info"/>
     </receiver>
 
-    <!-- 20 分钟后台定时自动刷新天气广播接收器 -->
+    <!--
+      30 分钟后台自动刷新天气广播接收器。
+      exported="false"：本 App 自己的 AlarmManager 闹钟与系统级广播
+      (BOOT_COMPLETED / MY_PACKAGE_REPLACED / USER_PRESENT) 照常投递，
+      但第三方 App 无法再伪造 action 强行触发网络刷新。
+    -->
     <receiver
         android:name=".WeatherWidgetAutoRefreshReceiver"
-        android:exported="true">
+        android:exported="false">
       <intent-filter>
-        <action android:name="com.pure.mojiweather.ACTION_AUTO_REFRESH_20MIN"/>
+        <action android:name="com.pure.mojiweather.ACTION_AUTO_REFRESH_30MIN"/>
         <action android:name="android.intent.action.BOOT_COMPLETED"/>
         <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
         <action android:name="android.intent.action.USER_PRESENT"/>

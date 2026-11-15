@@ -12,7 +12,7 @@ export default function HourlyForecastCard({ hourly = [] }) {
           <Ionicons name="time-outline" size={17} color="rgba(255, 255, 255, 0.9)" style={{ marginRight: 6 }} />
           <Text style={styles.title}>24小时逐小时预报</Text>
         </View>
-        <Text style={styles.subtitle}>墨迹气象卫星云图同步</Text>
+        <Text style={styles.subtitle}>气象卫星云图同步</Text>
       </View>
 
       <ScrollView

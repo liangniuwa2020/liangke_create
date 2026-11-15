@@ -25,6 +25,11 @@ class LocationModule(private val reactContext: ReactApplicationContext) : ReactC
         return "LocationModule"
     }
 
+    private companion object {
+        /** 缓存坐标最长可用年龄：10 分钟。超过即视为过期，改用实时定位。 */
+        const val MAX_CACHED_LOCATION_AGE_MS = 10 * 60 * 1000L
+    }
+
     @ReactMethod
     fun checkPermission(promise: Promise) {
         val fineGranted = ActivityCompat.checkSelfPermission(
@@ -74,10 +79,18 @@ class LocationModule(private val reactContext: ReactApplicationContext) : ReactC
                 LocationManager.NETWORK_PROVIDER,
                 LocationManager.PASSIVE_PROVIDER
             )
+            val now = System.currentTimeMillis()
             for (provider in providers) {
                 if (locationManager.isProviderEnabled(provider)) {
                     val loc = locationManager.getLastKnownLocation(provider)
                     if (loc != null) {
+                        // 时效校验：系统缓存位置可能是几小时甚至几天前的，
+                        // 过期坐标会导致天气与城市张冠李戴，直接丢弃。
+                        val age = now - loc.time
+                        if (age > MAX_CACHED_LOCATION_AGE_MS) {
+                            Log.d("LocationModule", "Discard stale $provider fix, age=${age / 1000}s")
+                            continue
+                        }
                         if (bestLocation == null || loc.accuracy < bestLocation.accuracy || loc.time > bestLocation.time) {
                             bestLocation = loc
                         }

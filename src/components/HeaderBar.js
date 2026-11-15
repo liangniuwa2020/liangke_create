@@ -2,13 +2,18 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+// 统一时间展示：兼容原生小部件历史上写入的 "HH:mm 更新" 格式，避免出现 "08:30 更新 更新"
+function formatUpdateTime(value) {
+  if (!value) return '';
+  return String(value).replace(/\s*更新\s*$/, '').trim();
+}
+
 export default function HeaderBar({
   city,
   updateTime,
   onOpenCityModal,
   onRefresh,
   isRefreshing,
-  onOpenCleanModal,
   onOpenSkinModal,
   onOpenWidgetModal,
 }) {
@@ -38,7 +43,7 @@ export default function HeaderBar({
           </View>
           <Text style={styles.citySub} numberOfLines={1}>
             {city.street ? `${city.street} · ` : city.district ? `${city.district} · ` : (city.admin1 && !city.name.includes(city.admin1) ? `${city.admin1} · ` : '')}
-            {updateTime ? `${updateTime} 更新` : '同步中...'}
+            {updateTime ? `${formatUpdateTime(updateTime)} 更新` : '同步中...'}
           </Text>
         </View>
       </TouchableOpacity>

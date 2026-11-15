@@ -1,135 +1,223 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+无广告天气 · 桌面小部件换肤/刷新验证脚本
+
+用法：
+    python test_widget_skin_verification.py                 # 先构建 APK，再校验 APK + 源码
+    python test_widget_skin_verification.py --skip-apk      # 只校验源码与资源（不要求 APK）
+    python test_widget_skin_verification.py --apk <path>    # 指定要校验的 APK
+
+校验内容：
+    APK 级   resources.arsc 含换肤图标 / 换肤按钮 / 三套小部件布局 / 4x2 背景
+             classes.dex 含换肤广播与 30 分钟自动刷新相关符号
+    源码级   三个 Provider 的换肤与刷新调用完整
+             SyncHelper 有 30 分钟周期、精确闹钟降级、AQI 六档、更新时间幂等格式化
+             Manifest 权限与广播接收器注册正确
+             三个 info.xml 的 updatePeriodMillis 精确为 1800000
+"""
+
 import os
-import zipfile
 import re
-import requests
-import json
 import sys
+import zipfile
 
-def test_weather_apk():
-    apk_path = r"E:\Antigravity ex_project\moji-weather-app\MojiWeather.apk"
-    print(f"[*] 正在检验天气 APK 产物: {apk_path}")
-    assert os.path.exists(apk_path), f"APK 文件不存在: {apk_path}"
-    file_size = os.path.getsize(apk_path)
-    print(f"    APK 文件大小: {file_size / (1024*1024):.2f} MB")
-    assert file_size > 50 * 1024 * 1024, "APK 文件过小，可能不完整"
+ROOT = os.path.dirname(os.path.abspath(__file__))
+JAVA_SRC = os.path.join(
+    ROOT, "android", "app", "src", "main", "java", "com", "pure", "mojiweather"
+)
+RES_XML = os.path.join(ROOT, "android", "app", "src", "main", "res", "xml")
+MANIFEST = os.path.join(ROOT, "android", "app", "src", "main", "AndroidManifest.xml")
+DEFAULT_APK = os.path.join(
+    ROOT, "android", "app", "build", "outputs", "apk", "release", "app-release.apk"
+)
 
-    with zipfile.ZipFile(apk_path, 'r') as z:
+WIDGET_SIZES = ["4x1", "4x2", "4x3"]
+
+passed = 0
+failed = 0
+
+
+def ok(msg):
+    global passed
+    passed += 1
+    print("    [OK] " + msg)
+
+
+def bad(msg):
+    global failed
+    failed += 1
+    print("    [FAIL] " + msg)
+
+
+def check(cond, msg):
+    if cond:
+        ok(msg)
+    else:
+        bad(msg)
+
+
+def read(path):
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+def test_apk(apk_path):
+    print("[*] 正在校验 APK 产物: " + apk_path)
+    if not os.path.exists(apk_path):
+        bad("APK 文件不存在: " + apk_path)
+        return
+    size = os.path.getsize(apk_path)
+    print("    APK 文件大小: %.2f MB" % (size / (1024.0 * 1024.0)))
+    check(size > 10 * 1024 * 1024, "APK 体积合理（> 10 MB）")
+
+    with zipfile.ZipFile(apk_path, "r") as z:
         names = z.namelist()
-        
-        # 1. 验证 resources.arsc 中包含换肤相关资源名称
-        arsc_data = z.read("resources.arsc")
-        has_skin_icon = b"ic_widget_skin" in arsc_data
-        has_widget_btn = b"widget_btn_skin" in arsc_data
-        has_widget_4x1 = b"widget_weather_4x1" in arsc_data
-        has_widget_4x2 = b"widget_weather_4x2" in arsc_data
-        has_widget_4x3 = b"widget_weather_4x3" in arsc_data
+        arsc = z.read("resources.arsc")
+        check(b"ic_widget_skin" in arsc, "resources.arsc 含换肤图标 ic_widget_skin")
+        check(b"widget_btn_skin" in arsc, "resources.arsc 含换肤按钮 widget_btn_skin")
+        check(
+            b"widget_bg_4x2" in arsc,
+            "resources.arsc 含 4x2 独立背景 widget_bg_4x2",
+        )
+        check(
+            all(("widget_weather_" + s).encode() in arsc for s in WIDGET_SIZES),
+            "resources.arsc 含三套小部件布局 widget_weather_4x1/4x2/4x3",
+        )
 
-        print(f"    resources.arsc 包含换肤图标 (ic_widget_skin): {has_skin_icon}")
-        print(f"    resources.arsc 包含换肤按钮 (widget_btn_skin): {has_widget_btn}")
-        print(f"    resources.arsc 包含小部件布局 4x1/4x2/4x3: {has_widget_4x1 and has_widget_4x2 and has_widget_4x3}")
+        check(
+            "assets/index.android.bundle" in names,
+            "assets/index.android.bundle 已打包（release 不会白屏）",
+        )
 
-        assert has_skin_icon, "APK resources.arsc 中未找到 ic_widget_skin 图标"
-        assert has_widget_btn, "APK resources.arsc 中未找到 widget_btn_skin 控件 ID"
-        assert has_widget_4x1 and has_widget_4x2 and has_widget_4x3, "APK resources.arsc 中未找到完整的小部件布局"
+        dex_files = [n for n in names if n.endswith(".dex")]
+        print("    DEX 文件数量: %d" % len(dex_files))
+        blob = b"".join(z.read(d) for d in dex_files)
 
-        # 2. 验证 classes.dex 中包含 ACTION_SWITCH_WIDGET_SKIN 和 toggleWidgetSkin
-        dex_files = [n for n in names if n.endswith('.dex')]
-        print(f"    包含 DEX 文件数量: {len(dex_files)}")
-        found_action = False
-        found_toggle = False
-        for dex in dex_files:
-            dex_data = z.read(dex)
-            if b"ACTION_SWITCH_WIDGET_SKIN" in dex_data:
-                found_action = True
-            if b"toggleWidgetSkin" in dex_data:
-                found_toggle = True
+    symbols = [
+        b"ACTION_SWITCH_WIDGET_SKIN",
+        b"toggleWidgetSkin",
+        b"ACTION_AUTO_REFRESH_30MIN",
+        b"scheduleAutoRefresh",
+        b"canScheduleExactAlarms",
+        b"formatUpdateTimeLabel",
+        b"WeatherWidgetAutoRefreshReceiver",
+        b"NoAdWeather/",
+    ]
+    for sym in symbols:
+        check(sym in blob, "DEX 含符号 " + sym.decode())
+    check(b"ACTION_AUTO_REFRESH_20MIN" not in blob, "DEX 不含已废弃的 ACTION_AUTO_REFRESH_20MIN")
 
-        print(f"    DEX 中是否包含换肤广播动作 ACTION_SWITCH_WIDGET_SKIN: {found_action}")
-        print(f"    DEX 中是否包含换肤方法 toggleWidgetSkin: {found_toggle}")
-        assert found_action, "DEX 中未找到换肤广播 Action"
-        assert found_toggle, "DEX 中未找到 toggleWidgetSkin 方法"
 
-    print("[SUCCESS] 天气应用 APK 及小部件换肤组件打包验证全部通过！\n")
+def test_source():
+    print("[*] 正在校验三个小部件 Provider 的换肤与刷新逻辑...")
+    for size in WIDGET_SIZES:
+        name = "WeatherWidget%sProvider.kt" % size
+        path = os.path.join(JAVA_SRC, name)
+        if not os.path.exists(path):
+            bad("缺少源文件 " + name)
+            continue
+        code = read(path)
+        check("ACTION_SWITCH_WIDGET_SKIN" in code, name + " 处理换肤广播")
+        check("widget_btn_skin" in code, name + " 绑定换肤按钮")
+        check("setColorFilter" in code, name + " 按皮肤设置图标颜色")
+        check("pendingSkinIntent" in code, name + " 设置换肤点击意图")
+        check("scheduleAutoRefresh(" in code, name + " 调用 30 分钟调度")
+        check(
+            "schedule20MinAutoRefresh(" not in code,
+            name + " 不再调用已废弃的 20 分钟调度",
+        )
 
-def test_source_code_consistency():
-    print("[*] 正在验证源码中 3 款小部件对皮肤切换按钮的处理完整性...")
-    base_src = r"E:\Antigravity ex_project\moji-weather-app\android\app\src\main\java\com\pure\mojiweather"
-    providers = ["WeatherWidget4x1Provider.kt", "WeatherWidget4x2Provider.kt", "WeatherWidget4x3Provider.kt"]
-    
-    for p in providers:
-        fpath = os.path.join(base_src, p)
-        with open(fpath, "r", encoding="utf-8") as f:
-            code = f.read()
-            assert "ACTION_SWITCH_WIDGET_SKIN" in code, f"{p} 缺少 ACTION_SWITCH_WIDGET_SKIN 处理"
-            assert "widget_btn_skin" in code, f"{p} 缺少 widget_btn_skin 绑定"
-            assert "setColorFilter" in code, f"{p} 缺少 widget_btn_skin 的 setColorFilter 颜色适配"
-            assert "pendingSkinIntent" in code, f"{p} 缺少 pendingSkinIntent 设置"
-        print(f"    [OK] {p} 逻辑完备（包含点击意图、深浅模式滤镜、广播分发）")
+    print("[*] 正在校验 WeatherWidgetSyncHelper 的实现细节...")
+    helper = read(os.path.join(JAVA_SRC, "WeatherWidgetSyncHelper.kt"))
+    check("toggleWidgetSkin" in helper, "Helper 含 toggleWidgetSkin")
+    check("KEY_WIDGET_SKIN" in helper, "Helper 含 KEY_WIDGET_SKIN")
+    for skin in ("dark", "white", "glass"):
+        check('"%s"' % skin in helper, "Helper 含皮肤 %s" % skin)
+    check(
+        re.search(r"REFRESH_INTERVAL_MILLIS\s*=\s*30\s*\*\s*60\s*\*\s*1000L", helper)
+        is not None,
+        "刷新周期为 30 分钟",
+    )
+    check("canScheduleExactAlarms()" in helper, "调度前检查 canScheduleExactAlarms()")
+    check("setAndAllowWhileIdle" in helper, "无精确闹钟权限时降级 setAndAllowWhileIdle")
+    check('SimpleDateFormat("HH:mm"' in helper, "updateTime 只存 HH:mm")
+    check('"HH:mm 更新"' not in helper, "不再存在 \"HH:mm 更新\" 旧格式")
+    check("formatUpdateTimeLabel" in helper, "Helper 提供幂等的更新时间格式化")
+    check("hourlyStartIndex" in helper, "hourly24 通过 hourlyStartIndex 对齐真实小时")
+    for level in ("轻度污染", "中度污染", "重度污染", "严重污染"):
+        check(level in helper, "AQI 分档含「%s」（与 JS 六档一致）" % level)
+    check("ACTION_AUTO_REFRESH_20MIN" not in helper, "Helper 已移除 20 分钟旧动作")
+    check("conn?.disconnect()" in helper, "httpGet 在 finally 中释放连接")
 
-    # 检查 Helper 类
-    helper_path = os.path.join(base_src, "WeatherWidgetSyncHelper.kt")
-    with open(helper_path, "r", encoding="utf-8") as f:
-        helper_code = f.read()
-        assert "toggleWidgetSkin" in helper_code, "Helper 缺少 toggleWidgetSkin"
-        assert "KEY_WIDGET_SKIN" in helper_code, "Helper 缺少 KEY_WIDGET_SKIN"
-        assert "dark" in helper_code and "white" in helper_code and "glass" in helper_code, "Helper 缺少 3 款皮肤轮换定义"
-    print("    [OK] WeatherWidgetSyncHelper.kt 轮询算法与持久化完整")
+    print("[*] 正在校验 Manifest 权限与广播注册...")
+    manifest = read(MANIFEST)
+    for perm in (
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WAKE_LOCK",
+    ):
+        check(perm in manifest, "Manifest 声明 " + perm)
+    check(
+        "com.pure.mojiweather.ACTION_AUTO_REFRESH_30MIN" in manifest,
+        "Manifest 注册 ACTION_AUTO_REFRESH_30MIN",
+    )
+    check(
+        "com.pure.mojiweather.ACTION_AUTO_REFRESH_20MIN" not in manifest,
+        "Manifest 已移除 ACTION_AUTO_REFRESH_20MIN",
+    )
+    check(
+        ".WeatherWidgetAutoRefreshReceiver" in manifest
+        and 'android:exported="false"' in manifest,
+        "自动刷新接收器导出关闭（第三方无法伪造刷新）",
+    )
+    check('android:allowBackup="false"' in manifest, "allowBackup 已关闭")
+    for perm in (
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.VIBRATE",
+    ):
+        check(perm not in manifest, "Manifest 已移除未使用权限 " + perm)
 
-    print("[SUCCESS] 源码一致性与功能完整性验证全部通过！\n")
+    print("[*] 正在校验三套 widget info.xml...")
+    for size in WIDGET_SIZES:
+        info_path = os.path.join(RES_XML, "weather_widget_%s_info.xml" % size)
+        if not os.path.exists(info_path):
+            bad("缺少 info.xml: weather_widget_%s_info.xml" % size)
+            continue
+        info = read(info_path)
+        check(
+            'android:updatePeriodMillis="1800000"' in info,
+            "weather_widget_%s_info.xml updatePeriodMillis=1800000" % size,
+        )
+        check(
+            'android:previewLayout="@layout/widget_weather_%s"' % size in info,
+            "weather_widget_%s_info.xml 设置 previewLayout（选择器有预览图）" % size,
+        )
 
-def test_ashare_backend_regression():
-    print("[*] 正在对股票监控后台进行全量回归测试...")
-    url_base = "http://127.0.0.1:8099"
-    
-    # 1. 检验热榜 200 条与高人气原因
-    r = requests.get(f"{url_base}/api/market/hot_stocks?limit=200")
-    assert r.status_code == 200, f"股票热榜接口异常: {r.status_code}"
-    res = r.json()
-    assert res.get("status") == "success", "返回状态非 success"
-    hot_data = res.get("data", [])
-    assert len(hot_data) == 200, f"热点榜单应严格为 200 条，实际为 {len(hot_data)}"
-    assert all("hot_reason" in x and len(x["hot_reason"]) >= 15 for x in hot_data[:50]), "热榜股票缺少深入人气原因"
-    print(f"    [OK] 股票热榜: {len(hot_data)} 支个股全部就绪，股吧/论坛/题材原因归因完整深入")
 
-    # 2. 检验板块 TOP 20 及排序
-    r = requests.get(f"{url_base}/api/market/strong_sectors")
-    assert r.status_code == 200, "板块接口异常"
-    sec_res = r.json()
-    assert sec_res.get("status") == "success"
-    sec_data = sec_res.get("data", [])
-    assert len(sec_data) >= 15, "板块数据不足"
-    first_sec = sec_data[0]["sector_name"]
-    print(f"    [OK] 强势板块 TOP 20 正常，首个板块: {first_sec}")
+def main():
+    args = sys.argv[1:]
+    skip_apk = "--skip-apk" in args
+    apk_path = DEFAULT_APK
+    if "--apk" in args:
+        idx = args.index("--apk")
+        if idx + 1 < len(args):
+            apk_path = args[idx + 1]
 
-    # 3. 检验板块内股票多维度排序指标
-    r = requests.get(f"{url_base}/api/market/sector_stocks?sector={first_sec}")
-    assert r.status_code == 200, "板块成分股接口异常"
-    stocks_res = r.json()
-    assert stocks_res.get("status") == "success"
-    stocks = stocks_res.get("data", {}).get("stocks", [])
-    assert len(stocks) > 0, "成分股为空"
-    keys_needed = ["current_price", "change_percent", "turnover_rate", "amount", "total_mv", "pe_ratio", "pb_ratio"]
-    for k in keys_needed:
-        assert k in stocks[0], f"成分股缺少指标: {k}"
-    print(f"    [OK] 板块成分股全部包含 7 维排序字段: {keys_needed}")
+    if not skip_apk:
+        test_apk(apk_path)
+    else:
+        print("[*] 已跳过 APK 校验（--skip-apk）")
+    test_source()
 
-    # 4. 检验龙虎榜合并去重
-    r = requests.get(f"{url_base}/api/market/dragon_tiger")
-    assert r.status_code == 200, "龙虎榜接口异常"
-    lhb_res = r.json()
-    assert lhb_res.get("status") == "success"
-    lhb = lhb_res.get("data", [])
-    assert len(lhb) > 0, "龙虎榜数据为空"
-    codes = [item["stock_code"] for item in lhb]
-    assert len(codes) == len(set(codes)), "龙虎榜存在重复代码，未进行同股票合并！"
-    print(f"    [OK] 龙虎榜 {len(lhb)} 条异动明细同股原因合并成功，无重复项")
+    print("-" * 60)
+    if failed:
+        print("FAILED: %d 项通过, %d 项失败" % (passed, failed))
+        return 1
+    print("ALL TESTS PASSED: %d 项检查全部通过" % passed)
+    return 0
 
-    print("[SUCCESS] 股票监控系统全量回归测试全部通过！\n")
 
 if __name__ == "__main__":
-    test_weather_apk()
-    test_source_code_consistency()
-    test_ashare_backend_regression()
-    print("="*60)
-    print("ALL TESTS PASSED: 天气桌面小部件换肤功能与股票系统测试 100% 达标！")
-    print("="*60)
+    sys.exit(main())

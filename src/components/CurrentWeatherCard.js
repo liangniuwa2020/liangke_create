@@ -82,7 +82,7 @@ export default function CurrentWeatherCard({
         </Text>
       </View>
 
-      {/* 墨迹经典指标胶囊条：空气质量 + 风向风速 + 相对湿度 */}
+      {/* 经典指标胶囊条：空气质量 + 风向风速 + 相对湿度 */}
       <View style={styles.tagPillsRow}>
         <TouchableOpacity
           style={[styles.aqiPill, { backgroundColor: aqi ? aqi.bgColor : 'rgba(255,255,255,0.2)' }]}
@@ -109,7 +109,7 @@ export default function CurrentWeatherCard({
         </View>
       </View>
 
-      {/* 墨迹分钟级短时降水通知横幅 */}
+      {/* 分钟级短时降水通知横幅 */}
       {shortTermRain && (
         <View style={styles.shortTermBanner}>
           <View style={[styles.badgeIndicator, { backgroundColor: shortTermRain.color }]}>

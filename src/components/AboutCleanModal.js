@@ -8,7 +8,7 @@ export default function AboutCleanModal({ visible, onClose }) {
       icon: 'ban-outline',
       color: '#ef4444',
       title: '零广告轰炸',
-      desc: '杜绝传统墨迹天气繁杂的开屏广告、弹窗推销、假红包和信息流视频，还原天气软件应有的纯粹。',
+      desc: '杜绝传统天气 App 繁杂的开屏广告、弹窗推销、假红包和信息流视频，还原天气软件应有的纯粹。',
     },
     {
       icon: 'flash-outline',
@@ -25,8 +25,8 @@ export default function AboutCleanModal({ visible, onClose }) {
     {
       icon: 'shield-checkmark-outline',
       color: '#10b981',
-      title: '墨迹精髓生活指数',
-      desc: '完整复刻穿衣、紫外线、洗车、雨伞、感冒、运动等 8 大实用生活指南，让日常出行更安心。',
+      title: '实用生活指数',
+      desc: '完整内置穿衣、紫外线、洗车、雨伞、感冒、运动等 8 大实用生活指南，让日常出行更安心。',
     },
     {
       icon: 'heart-outline',
@@ -50,7 +50,7 @@ export default function AboutCleanModal({ visible, onClose }) {
             <View style={styles.iconCircle}>
               <Ionicons name="sunny" size={26} color="#3b82f6" />
             </View>
-            <Text style={styles.title}>墨迹天气 · 纯净无广告版</Text>
+            <Text style={styles.title}>无广告天气</Text>
             <Text style={styles.subtitle}>Pure Clean Weather Experience</Text>
           </View>
 
@@ -68,7 +68,7 @@ export default function AboutCleanModal({ visible, onClose }) {
             ))}
 
             <View style={styles.versionCard}>
-              <Text style={styles.versionTitle}>版本信息：v1.1.9 (20分钟自动刷新 · 小部件免跳转即时更新)</Text>
+              <Text style={styles.versionTitle}>版本信息：v1.2.3 (30分钟自动刷新 · 小部件免跳转即时更新)</Text>
               <Text style={styles.versionSub}>专为追求清爽体验的用户量身定制</Text>
             </View>
           </ScrollView>

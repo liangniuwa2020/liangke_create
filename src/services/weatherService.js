@@ -1,4 +1,4 @@
-// 墨迹天气纯净版 - 天气数据服务 (Open-Meteo & Air Quality)
+// 无广告天气 - 天气数据服务 (Open-Meteo & Air Quality)
 
 // 常用默认热门城市
 export const DEFAULT_CITIES = [
@@ -99,7 +99,7 @@ export function getAqiLevel(aqi) {
   }
 }
 
-// 计算墨迹经典生活指数 (根据当前气温、降雨概率、湿度、风速、紫外线综合计算)
+// 计算生活指数 (根据当前气温、降雨概率、湿度、风速、紫外线综合计算)
 export function calculateLivingIndices(temp, humidity, windKmh, uvIndex = 0, rainProb = 0) {
   // 1. 穿衣指数
   let dressing = { name: '穿衣', icon: 'shirt-outline', level: '', tip: '' };
@@ -223,7 +223,7 @@ export function calculateLivingIndices(temp, humidity, windKmh, uvIndex = 0, rai
   return [dressing, uv, flu, carWash, sport, umbrella, dry, comfort];
 }
 
-// 获取未来两小时墨迹特色分钟级短时降水描述
+// 获取未来两小时分钟级短时降水描述
 export function getShortTermRainForecast(hourlyRain, currentCode) {
   const isCurrentlyRaining = [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].includes(currentCode);
   if (isCurrentlyRaining) {
@@ -255,6 +255,26 @@ export function getShortTermRainForecast(hourlyRain, currentCode) {
   };
 }
 
+/**
+ * 带超时的 fetch 包装。
+ * 原生 fetch 没有默认超时：弱网或服务端挂起时 Promise 会永远 pending，
+ * 界面上的「正在同步」状态就再也退不出去。所有外部请求统一走这里。
+ */
+async function fetchWithTimeout(url, { timeoutMs = 12000, ...options } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      throw new Error(`请求超时（${Math.round(timeoutMs / 1000)} 秒）：${url}`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // 统一请求实时全量天气数据 (Forecast + Air Quality)
 export async function fetchCompleteWeather(latitude, longitude) {
   const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,pressure_msl,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max&timezone=auto`;
@@ -263,8 +283,9 @@ export async function fetchCompleteWeather(latitude, longitude) {
 
   try {
     const [weatherRes, aqiRes] = await Promise.all([
-      fetch(weatherUrl).then(r => r.json()),
-      fetch(aqiUrl).then(r => r.json()).catch(() => null), // 允许 AQI 降级
+      fetchWithTimeout(weatherUrl, { timeoutMs: 12000 }).then(r => r.json()),
+      // 空气质量允许降级：超时或失败都不阻塞主天气数据
+      fetchWithTimeout(aqiUrl, { timeoutMs: 8000 }).then(r => r.json()).catch(() => null),
     ]);
 
     if (!weatherRes || !weatherRes.current) {
@@ -416,7 +437,7 @@ export async function searchCities(keyword) {
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cleanKeyword)}&count=10&language=zh&format=json`;
 
   try {
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url, { timeoutMs: 8000 });
     const data = await res.json();
     if (!data || !data.results) return [];
 

@@ -1,5 +1,19 @@
-// 墨迹天气纯净版 - 高精度 GPS / 网络自动定位与逆地理编码服务
+// 无广告天气 - 高精度 GPS / 网络自动定位与逆地理编码服务
 import { NativeModules, Platform, PermissionsAndroid } from 'react-native';
+
+const APP_VERSION = '1.2.2';
+// 逆地理编码请求 UA（Nominatim 要求带可识别的 UA）
+const NOMINATIM_USER_AGENT = `MojiWeatherPure/${APP_VERSION}`;
+
+/**
+ * 生成稳定的定位 id：同一坐标（约 100m 精度）始终得到同一个 id，
+ * 避免每次自动定位都生成新 id 触发上游组件重渲染 / 定时器重建。
+ */
+function buildStableLocationId(prefix, latitude, longitude) {
+  const lat = Number(latitude).toFixed(3);
+  const lon = Number(longitude).toFixed(3);
+  return `${prefix}_${lat}_${lon}`;
+}
 
 const DEFAULT_NANCHANG = {
   id: 'nanchang_gps',
@@ -24,8 +38,8 @@ export async function requestLocationPermission() {
     const granted = await PermissionsAndroid.request(
       PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
       {
-        title: '墨迹天气定位权限申请',
-        message: '墨迹天气需要获取您的 GPS 位置，以便为您呈现当前街道和精确气象预报。',
+        title: '无广告天气定位权限申请',
+        message: '无广告天气需要获取您的 GPS 位置，以便为您呈现当前街道和精确气象预报。',
         buttonNeutral: '稍后询问',
         buttonNegative: '拒绝',
         buttonPositive: '允许定位',
@@ -50,7 +64,7 @@ async function reverseGeocodeOSM(latitude, longitude) {
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'MojiWeatherPure/1.1.4',
+        'User-Agent': NOMINATIM_USER_AGENT,
       },
     });
     clearTimeout(timeoutId);
@@ -91,9 +105,11 @@ async function reverseGeocodeOSM(latitude, longitude) {
  * IP 网络高精度兜底定位
  */
 async function getIPLocationFallback() {
+  // 全部使用 HTTPS：Android 9+ 默认禁止明文 HTTP（cleartext），
+  // 原来写死 http://ip-api.com 在真机上必然被系统拦截。
   const ipApis = [
     'https://api.ip.sb/geoip',
-    'http://ip-api.com/json/?lang=zh-CN',
+    'https://ipwho.is/',
     'https://ipapi.co/json/',
   ];
 
@@ -115,7 +131,7 @@ async function getIPLocationFallback() {
           // 尝试逆地理编码精确到街道
           const geo = await reverseGeocodeOSM(lat, lon);
           return {
-            id: `loc_ip_${Date.now()}`,
+            id: buildStableLocationId('loc_ip', lat, lon),
             name: geo?.displayName || `${city}市`,
             city: geo?.city || city,
             district: geo?.district || '',
@@ -128,8 +144,8 @@ async function getIPLocationFallback() {
           };
         }
       }
-    } catch (e) {
-      // try next
+    } catch (_e) {
+      // 该 IP 接口失败，继续尝试下一个
     }
   }
 
@@ -147,6 +163,11 @@ export async function getAutoCurrentLocation() {
       await requestLocationPermission();
 
       const locResult = await NativeModules.LocationModule.getCurrentLocation();
+      if (locResult && locResult.timedOut) {
+        console.warn('Native GPS 定位超时（6 秒未取到坐标），本次改用备用定位源');
+      } else if (locResult && locResult.providerDisabled) {
+        console.warn('系统定位服务已关闭，本次改用备用定位源');
+      }
       if (locResult && locResult.hasPermission && locResult.latitude && locResult.longitude) {
         const lat = locResult.latitude;
         const lon = locResult.longitude;
@@ -173,7 +194,7 @@ export async function getAutoCurrentLocation() {
         const cityLabel = finalCity || '南昌';
 
         return {
-          id: `loc_gps_${Date.now()}`,
+          id: buildStableLocationId('loc_gps', lat, lon),
           name: displayName || `${cityLabel}市`,
           city: cityLabel,
           district: finalDistrict,
@@ -206,7 +227,7 @@ export async function getAutoCurrentLocation() {
         const { latitude, longitude } = pos.coords;
         const geo = await reverseGeocodeOSM(latitude, longitude);
         return {
-          id: `loc_h5_${Date.now()}`,
+          id: buildStableLocationId('loc_h5', latitude, longitude),
           name: geo?.displayName || '当前定位',
           city: geo?.city || '南昌',
           district: geo?.district || '',
@@ -218,8 +239,8 @@ export async function getAutoCurrentLocation() {
           isGps: true,
         };
       }
-    } catch (e) {
-      // fallback
+    } catch (_e) {
+      // 浏览器定位失败，退回 IP 兜底
     }
   }
 

@@ -20,12 +20,12 @@ class WeatherWidget4x2Provider : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        WeatherWidgetSyncHelper.schedule20MinAutoRefresh(context)
+        WeatherWidgetSyncHelper.scheduleAutoRefresh(context)
         WeatherWidgetSyncHelper.fetchWeatherInBackground(context, showFeedback = false)
     }
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        WeatherWidgetSyncHelper.schedule20MinAutoRefresh(context)
+        WeatherWidgetSyncHelper.scheduleAutoRefresh(context)
         for (appWidgetId in appWidgetIds) {
             updateWidget(context, appWidgetManager, appWidgetId)
         }
@@ -114,7 +114,7 @@ class WeatherWidget4x2Provider : AppWidgetProvider() {
                     views.setInt(R.id.widget_btn_refresh, "setColorFilter", 0xFFFFFFFF.toInt())
                 }
                 else -> { // "dark"
-                    views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg_4x3)
+                    views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_bg_4x2)
                     views.setTextColor(R.id.widget_city_name, 0xFFFFFFFF.toInt())
                     views.setTextColor(R.id.widget_temperature, 0xFFFFFFFF.toInt())
                     views.setTextColor(R.id.widget_weather_desc, 0xFFFFFFFF.toInt())
@@ -129,7 +129,7 @@ class WeatherWidget4x2Provider : AppWidgetProvider() {
             var weatherDesc = "晴朗"
             var weatherType = "sunny"
             var aqiText = "优 32"
-            var updateTime = SimpleDateFormat("HH:mm 更新", Locale.CHINA).format(Date())
+            var updateTime = SimpleDateFormat("HH:mm", Locale.CHINA).format(Date())
 
             var hourlyArr: org.json.JSONArray? = null
             var forecastArr: org.json.JSONArray? = null
@@ -155,7 +155,7 @@ class WeatherWidget4x2Provider : AppWidgetProvider() {
             }
 
             views.setTextViewText(R.id.widget_city_name, cityName)
-            views.setTextViewText(R.id.widget_update_time, updateTime)
+            views.setTextViewText(R.id.widget_update_time, WeatherWidgetSyncHelper.formatUpdateTimeLabel(updateTime))
             views.setTextViewText(R.id.widget_aqi_text, aqiText)
             views.setTextViewText(R.id.widget_temperature, tempStr)
             views.setTextViewText(R.id.widget_weather_desc, weatherDesc)

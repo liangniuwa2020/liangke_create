@@ -60,7 +60,7 @@ class WeatherWidgetModule(private val reactContext: ReactApplicationContext) : R
             WeatherWidget4x1Provider.updateAllWidgets(reactContext)
 
             // 调度并确保 20 分钟后台定时自动刷新
-            WeatherWidgetSyncHelper.schedule20MinAutoRefresh(reactContext)
+            WeatherWidgetSyncHelper.scheduleAutoRefresh(reactContext)
         } catch (e: Exception) {
             e.printStackTrace()
         }

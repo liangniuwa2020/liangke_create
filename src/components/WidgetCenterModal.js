@@ -5,16 +5,45 @@ import { Ionicons } from '@expo/vector-icons';
 
 const WIDGET_SKIN_STORAGE_KEY = '@pure_moji_weather_widget_skin';
 
+// 数据未就绪时用于预览的占位数据。之前这里直接 return null，
+// 导致用户点开「桌面小部件工坊」没有任何反应，看起来像按钮失效。
+const EMPTY_CURRENT = {
+  weather: '--',
+  temp: '--',
+  rainProb: 0,
+  windDirection: '',
+  windScale: '',
+  humidity: '--',
+  apparentTemp: '--',
+};
+const EMPTY_TODAY = { maxTemp: '--', minTemp: '--' };
+const EMPTY_CITY = { name: '--' };
+
 export default function WidgetCenterModal({
   visible,
   onClose,
-  current,
-  today,
+  current: rawCurrent,
+  today: rawToday,
   aqi,
-  city,
+  city: rawCity,
 }) {
+  const current = rawCurrent || EMPTY_CURRENT;
+  const today = rawToday || EMPTY_TODAY;
+  const city = rawCity || EMPTY_CITY;
+  const dataReady = Boolean(rawCurrent && rawToday);
   const [selectedStyle, setSelectedStyle] = useState('dark'); // 'dark' | 'white' | 'glass'
-  const [showAqi, setShowAqi] = useState(true);
+  const [showAqi] = useState(true);
+  const [now, setNow] = useState(() => new Date());
+
+  // 预览区时钟实时跳动，避免永远显示写死的 "20:30"
+  useEffect(() => {
+    if (!visible) return undefined;
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, [visible]);
+
+  const previewTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const previewDateStr = `${now.getMonth() + 1}月${now.getDate()}日 ${['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'][now.getDay()]}`;
 
   useEffect(() => {
     AsyncStorage.getItem(WIDGET_SKIN_STORAGE_KEY).then(saved => {
@@ -36,7 +65,7 @@ export default function WidgetCenterModal({
     }
   };
 
-  if (!current || !today) return null;
+  if (!visible) return null;
 
   return (
     <Modal
@@ -54,7 +83,7 @@ export default function WidgetCenterModal({
                 <Ionicons name="grid" size={20} color="#3b82f6" />
               </View>
               <View>
-                <Text style={styles.title}>墨迹桌面小部件工坊</Text>
+                <Text style={styles.title}>无广告天气 · 桌面小部件工坊</Text>
                 <Text style={styles.subtitle}>自选尺寸与皮肤，即时同步至手机桌面</Text>
               </View>
             </View>
@@ -63,6 +92,14 @@ export default function WidgetCenterModal({
               <Ionicons name="close" size={22} color="#ffffff" />
             </TouchableOpacity>
           </View>
+
+          {/* 天气数据尚未加载完成时，明确提示预览为占位样式，而不是让页面空白 */}
+          {!dataReady && (
+            <View style={styles.noticeRow}>
+              <Ionicons name="information-circle-outline" size={15} color="#fbbf24" />
+              <Text style={styles.noticeText}>天气数据加载中，当前为皮肤预览样式；皮肤设置依然生效。</Text>
+            </View>
+          )}
 
           {/* 材质风格切换 */}
           <View style={styles.styleSelectorRow}>
@@ -116,8 +153,8 @@ export default function WidgetCenterModal({
                 {/* 主栏：左侧大时钟，右侧天气 */}
                 <View style={styles.w4x2Row}>
                   <View>
-                    <Text style={[styles.wClockNum, selectedStyle === 'white' && styles.textDark]}>20:30</Text>
-                    <Text style={[styles.wDateLabel, selectedStyle === 'white' && styles.textDarkSub]}>10月3日 星期六</Text>
+                    <Text style={[styles.wClockNum, selectedStyle === 'white' && styles.textDark]}>{previewTimeStr}</Text>
+                    <Text style={[styles.wDateLabel, selectedStyle === 'white' && styles.textDarkSub]}>{previewDateStr}</Text>
                   </View>
 
                   <View style={styles.wDivider} />
@@ -371,7 +408,7 @@ export default function WidgetCenterModal({
                 <Text style={styles.guideText}>
                   1. 在手机桌面空白区域【长按】或双指捏合；{'\n'}
                   2. 点击底部出现的【小部件】或【微件 / 桌面插件】；{'\n'}
-                  3. 找到【墨迹纯净天气】，选择【4×3 一周预报】、【4×2 24小时天气】或【4×1 时钟天气】长按拖动至桌面即可！
+                  3. 找到【无广告天气】，选择【4×3 一周预报】、【4×2 24小时天气】或【4×1 时钟天气】长按拖动至桌面即可！
                 </Text>
               </View>
             </View>
@@ -435,6 +472,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  noticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(251, 191, 36, 0.12)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#fcd34d',
+    marginLeft: 6,
+    lineHeight: 16,
   },
   styleSelectorRow: {
     flexDirection: 'row',

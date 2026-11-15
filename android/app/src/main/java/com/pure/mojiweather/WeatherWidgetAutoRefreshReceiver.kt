@@ -7,7 +7,7 @@ import android.content.Intent
 class WeatherWidgetAutoRefreshReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
-        if (action == WeatherWidgetSyncHelper.ACTION_AUTO_REFRESH_20MIN ||
+        if (action == WeatherWidgetSyncHelper.ACTION_AUTO_REFRESH_30MIN ||
             action == Intent.ACTION_BOOT_COMPLETED ||
             action == Intent.ACTION_MY_PACKAGE_REPLACED ||
             action == Intent.ACTION_USER_PRESENT) {
@@ -17,9 +17,9 @@ class WeatherWidgetAutoRefreshReceiver : BroadcastReceiver() {
             val appContext = context.applicationContext
 
             WeatherWidgetSyncHelper.fetchWeatherInBackground(appContext, showFeedback = false) {
-                // 确保执行完毕后再调度下一次 20 分钟闹钟，并结束 Broadcast 生命周期
+                // 确保执行完毕后再调度下一次 30 分钟闹钟，并结束 Broadcast 生命周期
                 try {
-                    WeatherWidgetSyncHelper.schedule20MinAutoRefresh(appContext)
+                    WeatherWidgetSyncHelper.scheduleAutoRefresh(appContext)
                 } finally {
                     try {
                         pendingResult.finish()

@@ -2,6 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+function formatClock(now) {
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function formatDate(now) {
+  const month = now.getMonth() + 1;
+  const date = now.getDate();
+  const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  return `${month}月${date}日 ${dayNames[now.getDay()]}`;
+}
+
 export default function ClockWeatherWidget({
   current,
   today,
@@ -10,22 +23,16 @@ export default function ClockWeatherWidget({
   onRefresh,
   isRefreshing,
 }) {
-  const [timeStr, setTimeStr] = useState('');
-  const [dateStr, setDateStr] = useState('');
+  // 用惰性初始化直接拿到当前时间，避免首帧闪现写死的占位时间（历史为 '18:48'）
+  const [timeStr, setTimeStr] = useState(() => formatClock(new Date()));
+  const [dateStr, setDateStr] = useState(() => formatDate(new Date()));
 
   // 1 秒钟时钟跳动刷新
   useEffect(() => {
     function updateClock() {
       const now = new Date();
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      setTimeStr(`${hours}:${minutes}`);
-
-      const month = now.getMonth() + 1;
-      const date = now.getDate();
-      const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-      const dayName = dayNames[now.getDay()];
-      setDateStr(`${month}月${date}日 ${dayName}`);
+      setTimeStr(formatClock(now));
+      setDateStr(formatDate(now));
     }
 
     updateClock();
@@ -33,17 +40,9 @@ export default function ClockWeatherWidget({
     return () => clearInterval(interval);
   }, []);
 
-  // 默认 1 个小时 (3600秒) 自动刷新一次微件气象数据
-  useEffect(() => {
-    const ONE_HOUR = 60 * 60 * 1000;
-    const autoRefreshTimer = setInterval(() => {
-      if (onRefresh && !isRefreshing) {
-        console.log('[ClockWeatherWidget] 1小时自动刷新微件数据');
-        onRefresh();
-      }
-    }, ONE_HOUR);
-    return () => clearInterval(autoRefreshTimer);
-  }, [onRefresh, isRefreshing]);
+  // 说明：微件气象数据的自动刷新统一由 App.js 的全局 30 分钟定时器调度，
+  // 此处不再重复注册定时器（历史上这里有一个 1 小时定时器，依赖 [onRefresh, isRefreshing]
+  // 会随父组件每次刷新而反复销毁重建，既与全局定时器冲突又永远等不到触发）。
 
   if (!current || !today) return null;
 
@@ -53,7 +52,7 @@ export default function ClockWeatherWidget({
       <View style={styles.topBar}>
         <View style={styles.widgetBadge}>
           <Ionicons name="apps-outline" size={11} color="#60a5fa" style={{ marginRight: 3 }} />
-          <Text style={styles.widgetBadgeText}>墨迹 4×2 经典桌面时钟微件</Text>
+          <Text style={styles.widgetBadgeText}>4×2 经典桌面时钟微件</Text>
         </View>
 
         <View style={styles.topRightActions}>
@@ -85,10 +84,10 @@ export default function ClockWeatherWidget({
       <View style={styles.bodyRow}>
         {/* 左侧：超大翻页时钟与日期 */}
         <View style={styles.clockCol}>
-          <Text style={styles.clockNumbers}>{timeStr || '18:48'}</Text>
+          <Text style={styles.clockNumbers}>{timeStr}</Text>
           <Text style={styles.dateLabel}>{dateStr}</Text>
           <Text style={styles.autoRefreshTip}>
-            1小时自动刷新 · {current.updateTime || '刚刚更新'}
+            30分钟自动刷新 · {current.updateTime ? `${current.updateTime} 更新` : '刚刚更新'}
           </Text>
         </View>
 

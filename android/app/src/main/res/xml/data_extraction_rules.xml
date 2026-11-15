@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ 备份/迁移规则：本地城市列表、选中城市、皮肤与微件皮肤属于个人偏好，
+  不参与云备份与设备间迁移，避免用户的常驻位置信息被同步到云端。
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="MojiWeatherWidgetPrefs.xml" />
+        <exclude domain="database" path="RKStorage" />
+        <exclude domain="database" path="RKStorage-wal" />
+        <exclude domain="database" path="RKStorage-shm" />
+        <exclude domain="root" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="MojiWeatherWidgetPrefs.xml" />
+        <exclude domain="database" path="RKStorage" />
+        <exclude domain="database" path="RKStorage-wal" />
+        <exclude domain="database" path="RKStorage-shm" />
+        <exclude domain="root" path="." />
+    </device-transfer>
+</data-extraction-rules>

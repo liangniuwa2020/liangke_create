@@ -36,6 +36,17 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# 构建产物：每个版本 30+ MB，进 git 历史会让仓库无限膨胀
+*.apk
+*.aab
+*.exe
+
+# 正式签名证书与口令：绝不能进仓库（debug.keystore 是公开的测试密钥，保留）
+android/keystore.properties
+android/app/release.keystore
+android/app/*.keystore
+!android/app/debug.keystore
+
 # generated native folders
 /ios
 android/.gradle/
@@ -43,3 +54,8 @@ android/build/
 android/app/build/
 android/local.properties
 android/.cxx/
+
+# Gradle/RN 构建期由 Metro 生成的 JS bundle，clone 后由 gradle 重新生成；必须忽略，
+# 否则旧 bundle 会被打包进 APK，导致 JS 改动完全不生效。
+android/app/src/main/assets/*.bundle
+android/app/src/main/assets/*.hbc

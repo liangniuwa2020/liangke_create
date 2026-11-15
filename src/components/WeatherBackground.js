@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Animated, Dimensions, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -109,12 +109,14 @@ export default function WeatherBackground({
   }
 
   // 1. 雨滴下落粒子动画
-  const dropAnims = useRef([
+  // 说明：用 useState 的惰性初始化持有 Animated.Value 实例（引用稳定），
+  // 避免 useRef(...).current 在 render 期间读取 ref 触发 react-hooks/refs 报错。
+  const [dropAnims] = useState(() => [
     new Animated.Value(0), new Animated.Value(0), new Animated.Value(0),
     new Animated.Value(0), new Animated.Value(0), new Animated.Value(0),
     new Animated.Value(0), new Animated.Value(0), new Animated.Value(0),
     new Animated.Value(0),
-  ]).current;
+  ]);
 
   useEffect(() => {
     if (effectiveWeatherType === 'rain' || effectiveWeatherType === 'thunder' || effectiveWeatherType === 'snow') {
@@ -131,11 +133,15 @@ export default function WeatherBackground({
         );
       });
       Animated.parallel(animations).start();
+      return () => {
+        animations.forEach((anim) => anim.stop());
+      };
     }
-  }, [effectiveWeatherType]);
+    return undefined;
+  }, [effectiveWeatherType, dropAnims]);
 
   // 2. 雷暴特有的电闪雷鸣闪烁动画 (Thunderstorm lightning flash)
-  const lightningOpacity = useRef(new Animated.Value(0)).current;
+  const [lightningOpacity] = useState(() => new Animated.Value(0));
   useEffect(() => {
     if (effectiveWeatherType === 'thunder') {
       const lightningLoop = Animated.loop(
@@ -153,35 +159,38 @@ export default function WeatherBackground({
       lightningLoop.start();
       return () => lightningLoop.stop();
     }
-  }, [effectiveWeatherType]);
+    return undefined;
+  }, [effectiveWeatherType, lightningOpacity]);
 
   // 3. 晴天太阳呼吸光晕动画
-  const sunPulse = useRef(new Animated.Value(0.9)).current;
+  const [sunPulse] = useState(() => new Animated.Value(0.9));
   useEffect(() => {
     if (isDay && effectiveWeatherType === 'sunny') {
-      Animated.loop(
+      const sunLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(sunPulse, { toValue: 1.15, duration: 2800, useNativeDriver: true }),
           Animated.timing(sunPulse, { toValue: 0.9, duration: 2800, useNativeDriver: true }),
         ])
-      ).start();
+      );
+      sunLoop.start();
+      return () => sunLoop.stop();
     }
-  }, [isDay, effectiveWeatherType]);
+    return undefined;
+  }, [isDay, effectiveWeatherType, sunPulse]);
 
   // 4. 多云飘云动画 (Horizontal drifting clouds)
-  const cloudDrift1 = useRef(new Animated.Value(-80)).current;
-  const cloudDrift2 = useRef(new Animated.Value(-120)).current;
+  const [cloudDrift1] = useState(() => new Animated.Value(-80));
+  const [cloudDrift2] = useState(() => new Animated.Value(-120));
   useEffect(() => {
     if (effectiveWeatherType === 'cloudy' || effectiveWeatherType === 'overcast') {
-      Animated.loop(
+      const drift1 = Animated.loop(
         Animated.timing(cloudDrift1, {
           toValue: width + 100,
           duration: 35000,
           useNativeDriver: true,
         })
-      ).start();
-
-      Animated.loop(
+      );
+      const drift2 = Animated.loop(
         Animated.sequence([
           Animated.delay(4000),
           Animated.timing(cloudDrift2, {
@@ -190,22 +199,32 @@ export default function WeatherBackground({
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      drift1.start();
+      drift2.start();
+      return () => {
+        drift1.stop();
+        drift2.stop();
+      };
     }
-  }, [effectiveWeatherType]);
+    return undefined;
+  }, [effectiveWeatherType, cloudDrift1, cloudDrift2]);
 
   // 5. 夜空繁星呼吸微光
-  const starGlow = useRef(new Animated.Value(0.4)).current;
+  const [starGlow] = useState(() => new Animated.Value(0.4));
   useEffect(() => {
     if (!isDay) {
-      Animated.loop(
+      const glowLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(starGlow, { toValue: 1, duration: 2000, useNativeDriver: true }),
           Animated.timing(starGlow, { toValue: 0.35, duration: 2000, useNativeDriver: true }),
         ])
-      ).start();
+      );
+      glowLoop.start();
+      return () => glowLoop.stop();
     }
-  }, [isDay]);
+    return undefined;
+  }, [isDay, starGlow]);
 
   const baseBgColor = themeColors && themeColors.length > 0 ? themeColors[0] : '#075985';
   const webStyle = Platform.OS === 'web' ? {

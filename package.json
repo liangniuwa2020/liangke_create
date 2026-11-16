@@ -1,6 +1,6 @@
 {
   "name": "no-ad-weather",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "main": "index.js",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.18",

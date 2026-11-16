@@ -15,7 +15,7 @@ import { NativeModules } from 'react-native';
  * 而这里只需要一个「原生读不到时的兜底值」，硬编码一份并让 verify_refresh.js
  * 断言它与 package.json 一致，比运行时依赖更稳。
  */
-export const FALLBACK_VERSION_NAME = '1.2.6';
+export const FALLBACK_VERSION_NAME = '1.2.7';
 
 /** 版本号读取结果缓存，避免每次渲染都跨桥 */
 let cachedInfo = null;

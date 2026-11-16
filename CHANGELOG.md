@@ -1,41 +1,8 @@
 # 无广告天气 (No Ad Weather) - 更新日志
 
-## [v1.2.6] - 2026-11-16
+## [v1.2.7] - 2026-11-16
 
-本轮修复用户实测反馈的「不手动点击刷新，数据就一直不动（停在 16 点，实际已 22 点）」，并按要求在界面顶部直接显示当前版本号。
-
-### ⏱ 自动刷新彻底失效（核心 bug）
-
-用户反馈：「我试过了，不点击刷新，不会自动刷新，现在还是 16 点刷新的。」
-
-**根因：计时挂在了定时器对象上，而不是绝对时间上。**
-
-旧实现是 `setInterval(handleRefresh, 30 分钟)`，而 `handleRefresh` 是 `useCallback`，依赖 `[autoDetectLocation, loadWeather, setRefreshing]`。这三个依赖任意一个身份变化（例如切城市、刷新状态翻转、定位结果更新），React 就会执行提前返回的 cleanup → `clearInterval` → 重新 `setInterval` —— **30 分钟的计时被清零重新数**。用户在城市间切换几次、或定位触发几次 `setState`，就永远等不到那一次 30 分钟到期。叠加 Android 息屏冻结 JS 定时器，表现就是「不点刷新就永远停在几小时前」。
-
-**修复：看门狗轮询 + 绝对时间戳判定。**
-
-- 新增 `src/services/refreshPolicy.js` 的 `AUTO_REFRESH_WATCHDOG_MS = 60 * 1000`（1 分钟）。
-- 新增纯函数 `shouldRunWatchdogTick({ lastRefreshAt, now, intervalMs, isRefreshing })`：正在刷新则跳过；否则交给 `shouldRefreshOnForeground()` 判定，只做一次 `Date.now() - lastRefreshAt` 的减法。
-- `App.js` 的自动刷新 effect 改成「每 60 秒醒一次 → 算一次时间差 → 差值 ≥30 分钟才真正联网」，并且：
-  - 用 `handleRefreshRef` 中转刷新函数（`useEffect` 每次 render 更新 ref），于是定时器 effect 的**依赖数组可以是 `[]`**，永不因身份变化被销毁重建；
-  - 启动时**先自检一次**（`tick()` 在 `setInterval` 之前），不必等满第一个 60 秒；
-  - 每一拍都刷新「下次刷新还有多久」文案，让用户直接看到定时器还活着。
-
-### 🏷 界面显示当前版本（用户要求）
-
-- 新增 `src/services/appInfo.js`：`getAppVersion()` 优先读原生 `PackageInfo.versionName`（也就是当前 APK 真实版本），读不到才退回打包期常量 `FALLBACK_VERSION_NAME`；`formatVersionLabel()` 统一成 `v1.2.6` 形式，异常时显示 `v—`。
-- `WeatherWidgetModule.kt` 新增 `@ReactMethod fun getAppVersion(promise: Promise)`，读 `PackageInfo`（`versionCode` 走 `longVersionCode`，兼容 API < 28）。
-- `HeaderBar` 顶部新增一行元信息：**版本号 + 下次自动刷新倒计时**（如 `v1.2.6 · 下次刷新 12 分钟后`），用户不必再进弹窗才能看到版本。
-- `AboutCleanModal` 的版本号不再硬编码 `v1.2.5`：改为接收 `versionLabel`，缺失时回退到 `FALLBACK_VERSION_NAME`。**从此升级版本只需改三处版本号文件，界面自动跟着变**。
-
-### 🧪 测试
-
-- `scripts/verify_refresh.js` 从 68 项扩到 **92 项**：
-  - 第 1 节定时器断言整体重写：不再要求 `setInterval(..., AUTO_REFRESH_INTERVAL_MS)`，改为断言第二参是 `AUTO_REFRESH_WATCHDOG_MS`、且看门狗周期 `0 < ms < 1800000` 并与刷新周期严格区分；断言依赖数组为 `[]`；断言 `handleRefreshRef.current = handleRefresh`、`shouldRunWatchdogTick(`、`Date.now() - lastRefreshTimestampRef.current` 三处核心接线。
-  - 新增第 10 节「看门狗自动刷新与版本号展示」14 项：时间戳判据、ref 中转、轮询周期、纯函数调用、倒计时提示、启动自检、`getAppVersion` 原生方法、`PackageInfo`/`longVersionCode` 读取、`appInfo.js` 两个导出、`App.js` 读版本写入 state、传给 HeaderBar/AboutCleanModal、HeaderBar 渲染标签。
-  - 第 6 节版本一致性断言改为「禁止组件里写死 `版本信息：vX.Y.Z`」，改为断言 `appInfo.js` 的 `FALLBACK_VERSION_NAME` 与 `package.json` 一致。
-- `scripts/test_refresh_policy.mjs` 从 113 项扩到 **138 项**：新增 `[5e]` 看门狗 14 项（周期范围、正在刷新不重复触发、过期/未过期/从未刷新、**多次 tick 不累积计时**、六种倒计时文案含系统时间倒退）与 `[5f]` 版本号 11 项（`appInfo` 导出、兜底版本号与 `package.json` 一致、优先读原生、`App.js` 接线、看门狗依赖数组为空、`handleRefreshRef` 中转）。
-- `scripts/test_app_smoke.mjs` 从 10 项扩到 **16 项**：新增 `[5]` 真实渲染 `HeaderBar` —— 断言版本号与倒计时出现在 DOM、更新时间仍在、未刷新时不显示「同步中...」、版本号缺失时显示 `v—` 占位符而非 `undefined`。
+本轮只做一件事：修复**桌面小部件的换肤 / 刷新按钮被布局挤到屏幕外**（上一版 v1.2.6 里这三颗按钮其实一直在，只是看不见也点不到）。
 
 ### 🧩 桌面小部件刷新 / 换肤按钮被挤出屏幕（核心 bug）
 
@@ -64,6 +31,48 @@
 ### 🧪 小部件按钮可见性测试
 
 - `scripts/verify_refresh.js` 从 92 项扩到 **112 项**，新增第 11 节「小部件刷新按钮可见性」20 项：三个布局各断言「含 `widget_btn_refresh` / 宽度是 16–32dp 固定值 / 带 `contentDescription` / **不含 `layout_weight`** / `widget_btn_skin` 存在 / Provider 绑定了 `onClickPendingIntent`」，外加「4×1 存在唯一可伸缩区」与「strings.xml 两条无障碍文案」。
+
+### 🔢 版本
+
+- `package.json` / `app.json` / `android/app/build.gradle` 统一升到 **1.2.7 / versionCode 16**；`appInfo.js` 的 `FALLBACK_VERSION_NAME` 同步为 `1.2.7`。
+- 之所以从 v1.2.6 再发一个 v1.2.7：v1.2.6 的发布产物里**没有**包含这三处布局重排（构建时间早于布局修改），重发一版并提升 `versionCode` 才能保证系统判定为「有更新」并覆盖安装。
+
+## [v1.2.6] - 2026-11-16
+
+本轮修复用户实测反馈的「不手动点击刷新，数据就一直不动（停在 16 点，实际已 22 点）」，并按要求在界面顶部直接显示当前版本号。
+
+### ⏱ 自动刷新彻底失效（核心 bug）
+
+用户反馈：「我试过了，不点击刷新，不会自动刷新，现在还是 16 点刷新的。」
+
+**根因：计时挂在了定时器对象上，而不是绝对时间上。**
+
+旧实现是 `setInterval(handleRefresh, 30 分钟)`，而 `handleRefresh` 是 `useCallback`，依赖 `[autoDetectLocation, loadWeather, setRefreshing]`。这三个依赖任意一个身份变化（例如切城市、刷新状态翻转、定位结果更新），React 就会执行提前返回的 cleanup → `clearInterval` → 重新 `setInterval` —— **30 分钟的计时被清零重新数**。用户在城市间切换几次、或定位触发几次 `setState`，就永远等不到那一次 30 分钟到期。叠加 Android 息屏冻结 JS 定时器，表现就是「不点刷新就永远停在几小时前」。
+
+**修复：看门狗轮询 + 绝对时间戳判定。**
+
+- 新增 `src/services/refreshPolicy.js` 的 `AUTO_REFRESH_WATCHDOG_MS = 60 * 1000`（1 分钟）。
+- 新增纯函数 `shouldRunWatchdogTick({ lastRefreshAt, now, intervalMs, isRefreshing })`：正在刷新则跳过；否则交给 `shouldRefreshOnForeground()` 判定，只做一次 `Date.now() - lastRefreshAt` 的减法。
+- `App.js` 的自动刷新 effect 改成「每 60 秒醒一次 → 算一次时间差 → 差值 ≥30 分钟才真正联网」，并且：
+  - 用 `handleRefreshRef` 中转刷新函数（`useEffect` 每次 render 更新 ref），于是定时器 effect 的**依赖数组可以是 `[]`**，永不因身份变化被销毁重建；
+  - 启动时**先自检一次**（`tick()` 在 `setInterval` 之前），不必等满第一个 60 秒；
+  - 每一拍都刷新「下次刷新还有多久」文案，让用户直接看到定时器还活着。
+
+### 🏷 界面显示当前版本（用户要求）
+
+- 新增 `src/services/appInfo.js`：`getAppVersion()` 优先读原生 `PackageInfo.versionName`（也就是当前 APK 真实版本），读不到才退回打包期常量 `FALLBACK_VERSION_NAME`；`formatVersionLabel()` 统一成 `v1.2.x` 形式，异常时显示 `v—`。
+- `WeatherWidgetModule.kt` 新增 `@ReactMethod fun getAppVersion(promise: Promise)`，读 `PackageInfo`（`versionCode` 走 `longVersionCode`，兼容 API < 28）。
+- `HeaderBar` 顶部新增一行元信息：**版本号 + 下次自动刷新倒计时**（如 `v1.2.6 · 下次刷新 12 分钟后`），用户不必再进弹窗才能看到版本。
+- `AboutCleanModal` 的版本号不再硬编码：改为接收 `versionLabel`，缺失时回退到 `FALLBACK_VERSION_NAME`。**从此升级版本只需改三处版本号文件，界面自动跟着变**。
+
+### 🧪 测试
+
+- `scripts/verify_refresh.js` 从 68 项扩到 **92 项**：
+  - 第 1 节定时器断言整体重写：不再要求 `setInterval(..., AUTO_REFRESH_INTERVAL_MS)`，改为断言第二参是 `AUTO_REFRESH_WATCHDOG_MS`、且看门狗周期 `0 < ms < 1800000` 并与刷新周期严格区分；断言依赖数组为 `[]`；断言 `handleRefreshRef.current = handleRefresh`、`shouldRunWatchdogTick(`、`Date.now() - lastRefreshTimestampRef.current` 三处核心接线。
+  - 新增第 10 节「看门狗自动刷新与版本号展示」14 项：时间戳判据、ref 中转、轮询周期、纯函数调用、倒计时提示、启动自检、`getAppVersion` 原生方法、`PackageInfo`/`longVersionCode` 读取、`appInfo.js` 两个导出、`App.js` 读版本写入 state、传给 HeaderBar/AboutCleanModal、HeaderBar 渲染标签。
+  - 第 6 节版本一致性断言改为「禁止组件里写死 `版本信息：vX.Y.Z`」，改为断言 `appInfo.js` 的 `FALLBACK_VERSION_NAME` 与 `package.json` 一致。
+- `scripts/test_refresh_policy.mjs` 从 113 项扩到 **138 项**：新增 `[5e]` 看门狗 14 项（周期范围、正在刷新不重复触发、过期/未过期/从未刷新、**多次 tick 不累积计时**、六种倒计时文案含系统时间倒退）与 `[5f]` 版本号 11 项（`appInfo` 导出、兜底版本号与 `package.json` 一致、优先读原生、`App.js` 接线、看门狗依赖数组为空、`handleRefreshRef` 中转）。
+- `scripts/test_app_smoke.mjs` 从 10 项扩到 **16 项**：新增 `[5]` 真实渲染 `HeaderBar` —— 断言版本号与倒计时出现在 DOM、更新时间仍在、未刷新时不显示「同步中...」、版本号缺失时显示 `v—` 占位符而非 `undefined`。
 
 ### 🔢 版本
 

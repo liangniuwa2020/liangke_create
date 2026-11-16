@@ -570,6 +570,78 @@ assert(
 );
 
 // ---------------------------------------------------------------
+// 11. 小部件刷新按钮必须存在、固定宽度、可点击（回归「按钮被挤出屏幕」）
+// ---------------------------------------------------------------
+section('11. 小部件刷新按钮可见性');
+
+const layoutDir = 'android/app/src/main/res/layout';
+const blockOf = (src, id) => {
+  // 反向找最近一个 '<' 起点、正向找最近的 '/>' 结束，截取该 View 的属性块
+  const at = src.indexOf(`@+id/${id}`);
+  if (at < 0) return '';
+  const start = src.lastIndexOf('<', at);
+  const end = src.indexOf('/>', at);
+  if (start < 0 || end < 0) return '';
+  return src.slice(start, end + 2);
+};
+
+for (const size of ['4x1', '4x2', '4x3']) {
+  const layout = read(`${layoutDir}/widget_weather_${size}.xml`);
+
+  const refreshBlock = blockOf(layout, 'widget_btn_refresh');
+  assert(
+    refreshBlock.length > 0,
+    `widget_weather_${size}.xml 含刷新按钮 widget_btn_refresh`,
+    '缺少该 id 时 Provider 绑定点击会静默失效'
+  );
+
+  // 固定 dp 宽度：wrap_content 会让按钮在窄屏被其它子 View 抢位，match_parent 会占满整行
+  const widthMatch = refreshBlock.match(/android:layout_width="(\d+)dp"/);
+  assert(
+    Boolean(widthMatch) && Number(widthMatch[1]) >= 16 && Number(widthMatch[1]) <= 32,
+    `widget_weather_${size}.xml 刷新按钮为固定 16-32dp 宽度`,
+    widthMatch ? `实际：${widthMatch[1]}dp` : '未找到 dp 宽度声明'
+  );
+
+  assert(
+    /android:contentDescription="@string\/widget_btn_refresh_desc"/.test(refreshBlock),
+    `widget_weather_${size}.xml 刷新按钮带 contentDescription（无障碍可识别）`
+  );
+
+  // 按钮不能挂 layout_weight：一旦可伸缩，窄屏时会被压到 0 宽度而「消失」
+  assert(
+    !/android:layout_weight=/.test(refreshBlock),
+    `widget_weather_${size}.xml 刷新按钮不参与 layout_weight 伸缩`
+  );
+
+  const skinBlock = blockOf(layout, 'widget_btn_skin');
+  assert(
+    skinBlock.length > 0 && /android:contentDescription="@string\/widget_btn_skin_desc"/.test(skinBlock),
+    `widget_weather_${size}.xml 换肤按钮存在且带 contentDescription`
+  );
+
+  const provider = read(`android/app/src/main/java/com/pure/mojiweather/WeatherWidget${size}Provider.kt`);
+  assert(
+    /onClickPendingIntent\(R\.id\.widget_btn_refresh,\s*pendingRefreshIntent\)/.test(provider)
+      || /setOnClickPendingIntent\(\s*R\.id\.widget_btn_refresh/.test(provider),
+    `WeatherWidget${size}Provider 给刷新按钮绑定点击事件`
+  );
+}
+
+// 4x1 的关键修复点：中间信息列必须可伸缩（weight=1），否则按钮会被溢出裁掉
+const layout4x1 = read(`${layoutDir}/widget_weather_4x1.xml`);
+assert(
+  /android:layout_width="0dp"\s*\n\s*android:layout_weight="1"/.test(layout4x1),
+  '4×1 中间信息列使用 0dp + layout_weight=1（唯一可伸缩区），保证右侧按钮不被挤出'
+);
+
+const stringsXml = read('android/app/src/main/res/values/strings.xml');
+assert(
+  /name="widget_btn_refresh_desc"/.test(stringsXml) && /name="widget_btn_skin_desc"/.test(stringsXml),
+  'strings.xml 定义小部件按钮的 contentDescription 文案'
+);
+
+// ---------------------------------------------------------------
 // 汇总
 // ---------------------------------------------------------------
 console.log(`\n${'-'.repeat(60)}`);

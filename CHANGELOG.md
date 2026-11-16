@@ -37,6 +37,34 @@
 - `scripts/test_refresh_policy.mjs` 从 113 项扩到 **138 项**：新增 `[5e]` 看门狗 14 项（周期范围、正在刷新不重复触发、过期/未过期/从未刷新、**多次 tick 不累积计时**、六种倒计时文案含系统时间倒退）与 `[5f]` 版本号 11 项（`appInfo` 导出、兜底版本号与 `package.json` 一致、优先读原生、`App.js` 接线、看门狗依赖数组为空、`handleRefreshRef` 中转）。
 - `scripts/test_app_smoke.mjs` 从 10 项扩到 **16 项**：新增 `[5]` 真实渲染 `HeaderBar` —— 断言版本号与倒计时出现在 DOM、更新时间仍在、未刷新时不显示「同步中...」、版本号缺失时显示 `v—` 占位符而非 `undefined`。
 
+### 🧩 桌面小部件刷新 / 换肤按钮被挤出屏幕（核心 bug）
+
+用户反馈：「小部件现在没有刷新按钮了？」——按钮和点击事件一直都在，是**布局撑爆后被裁掉**。
+
+**根因（4×1 为典型）**：桌面小部件最小宽度 250dp，扣掉左右各 12dp 内边距只剩约 226dp 可用。旧布局的固定内容合计已超过 226dp：
+
+| 区块 | 旧固定宽度 |
+| --- | --- |
+| 时钟列（26sp `HH:mm` + 10sp `11月16日 周六`） | ≈84dp |
+| 分隔线与外边距 | ≈20dp |
+| 中间列（定位图标 + 13sp 城市 + AQI 徽标 + 10sp 副信息） | ≈104dp |
+| 天气图标 | 28dp |
+| 温度列（20sp 温度 + 10sp `晴 26°/15°`） | ≈86dp |
+
+`LinearLayout` 会先把 `layout_weight` 的弹性间隔压到 0，**然后按子 View 顺序继续溢出**——排在行内最后的 `widget_btn_skin` / `widget_btn_refresh` 直接被裁到可视区之外。用户看到的就是「按钮消失了」。
+
+**修复（三个布局全部重排）**：
+
+- `android/app/src/main/res/layout/widget_weather_4x1.xml` 全量重写：固定宽度压到 ≈167dp（时钟 20sp、日期改短格式 8.5sp、天气图标 20dp、温度 16sp/8.5sp、两颗按钮各 18dp），把**唯一的可伸缩区交给中间信息列**（`layout_width="0dp"` + `layout_weight="1"`），宽度不足时只截断文字而不再裁掉按钮；顺带移除中间列多余的 11dp 定位图标。
+- `widget_weather_4x2.xml`：顶部栏改为「左侧信息整体 `weight=1` + 右侧图标/温度/按钮 `wrap_content`」两层结构，删掉原来会先被压成 0 的弹性 `FrameLayout`；按钮 22dp。
+- `widget_weather_4x3.xml`：`widget_refresh_container` 内两颗按钮 26dp → 24dp 并加 `scaleType="fitCenter"`，城市名 / 更新时间补 `maxWidth` + `maxLines="1"` + `ellipsize="end"`。
+- 三处按钮统一补齐 `contentDescription`（`strings.xml` 新增 `widget_btn_skin_desc` / `widget_btn_refresh_desc`），无障碍与可测试性同时改善。
+- 关键约束：**按钮宽度必须是固定 dp，且绝不参与 `layout_weight`** —— 一旦可伸缩，窄屏会把它压到 0 宽，视觉上等同「消失」。
+
+### 🧪 小部件按钮可见性测试
+
+- `scripts/verify_refresh.js` 从 92 项扩到 **112 项**，新增第 11 节「小部件刷新按钮可见性」20 项：三个布局各断言「含 `widget_btn_refresh` / 宽度是 16–32dp 固定值 / 带 `contentDescription` / **不含 `layout_weight`** / `widget_btn_skin` 存在 / Provider 绑定了 `onClickPendingIntent`」，外加「4×1 存在唯一可伸缩区」与「strings.xml 两条无障碍文案」。
+
 ### 🔢 版本
 
 - `package.json` / `app.json` / `android/app/build.gradle` 统一升到 **1.2.6 / versionCode 15**；`appInfo.js` 的 `FALLBACK_VERSION_NAME` 同步为 `1.2.6`。

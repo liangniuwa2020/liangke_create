@@ -10,7 +10,11 @@
     android:paddingTop="10dp"
     android:paddingBottom="10dp">
 
-    <!-- 1. 顶部栏：城市、定位与刷新 -->
+    <!--
+      1. 顶部栏：城市、定位与刷新
+      布局要点：换肤 / 刷新按钮必须始终可见。城市名与更新时间都加了 maxWidth + ellipsize，
+      理想宽度不足时只会截断文字，右侧按钮容器（wrap_content）不会被挤出可视区。
+    -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -31,6 +35,9 @@
             android:textSize="14sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:maxWidth="88dp"
             android:layout_marginLeft="4dp" />
 
         <FrameLayout
@@ -44,7 +51,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingLeft="10dp"
+            android:paddingLeft="8dp"
             android:paddingTop="2dp"
             android:paddingBottom="2dp">
 
@@ -55,22 +62,29 @@
                 android:text="实时同步"
                 android:textSize="10sp"
                 android:textColor="#94A3B8"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:maxWidth="62dp"
                 android:layout_marginRight="4dp" />
 
             <ImageView
                 android:id="@+id/widget_btn_skin"
-                android:layout_width="26dp"
-                android:layout_height="26dp"
-                android:padding="3dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:padding="2dp"
+                android:scaleType="fitCenter"
                 android:src="@drawable/ic_widget_skin"
-                android:layout_marginRight="4dp" />
+                android:contentDescription="@string/widget_btn_skin_desc"
+                android:layout_marginRight="2dp" />
 
             <ImageView
                 android:id="@+id/widget_btn_refresh"
-                android:layout_width="26dp"
-                android:layout_height="26dp"
-                android:padding="3dp"
-                android:src="@drawable/ic_widget_refresh" />
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:padding="2dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_widget_refresh"
+                android:contentDescription="@string/widget_btn_refresh_desc" />
         </LinearLayout>
     </LinearLayout>
 

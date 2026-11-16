@@ -6,4 +6,6 @@
   <string name="widget_4x2_desc">逐时预报小部件：实时天气与最近24小时气温变化趋势</string>
   <string name="widget_4x1_name">无广告天气 4×1 精简时钟天气</string>
   <string name="widget_4x1_desc">精简横幅小部件：实时走字时钟、当前天气、气温与空气质量</string>
+  <string name="widget_btn_skin_desc">切换小部件皮肤</string>
+  <string name="widget_btn_refresh_desc">立即刷新小部件天气</string>
 </resources>

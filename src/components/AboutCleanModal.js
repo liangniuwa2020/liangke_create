@@ -68,7 +68,7 @@ export default function AboutCleanModal({ visible, onClose }) {
             ))}
 
             <View style={styles.versionCard}>
-              <Text style={styles.versionTitle}>版本信息：v1.2.4 (30分钟自动刷新 · 小部件免跳转即时更新)</Text>
+              <Text style={styles.versionTitle}>版本信息：v1.2.5 (关屏后台持续 30 分钟刷新 · 小部件免跳转即时更新)</Text>
               <Text style={styles.versionSub}>专为追求清爽体验的用户量身定制</Text>
             </View>
           </ScrollView>

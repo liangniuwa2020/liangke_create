@@ -31,11 +31,15 @@ object WeatherWidgetSyncHelper {
     const val KEY_LONGITUDE = "widget_lon"
     const val KEY_CITY_NAME = "widget_city_name"
     const val KEY_WIDGET_SKIN = "widget_skin_type" // "dark" | "white" | "glass"
+    /** 最近一次成功联网抓取的时间戳（毫秒）。JS 侧唤醒时会读取它判断要不要立刻补一次刷新。 */
+    const val KEY_LAST_SYNC_AT = "widget_last_sync_at"
     const val ACTION_SWITCH_WIDGET_SKIN = "com.pure.mojiweather.ACTION_SWITCH_WIDGET_SKIN"
 
     const val ACTION_AUTO_REFRESH_30MIN = "com.pure.mojiweather.ACTION_AUTO_REFRESH_30MIN"
     private const val REFRESH_INTERVAL_MILLIS = 30 * 60 * 1000L // 30 分钟
     private const val ALARM_REQUEST_CODE = 10030
+    /** 兜底周期闹钟用另一个 requestCode，才能和上面的一次性精确闹钟共存 */
+    private const val BACKUP_REQUEST_CODE = 10031
 
     @Volatile
     private var isRefreshing = false
@@ -73,11 +77,24 @@ object WeatherWidgetSyncHelper {
     /**
      * 启动或校准 30 分钟后台自动刷新闹钟。
      *
+     * 关键设计：一次精确闹钟 + 一次重复闹钟**双通道并存**。
+     * 历史 bug（v1.2.5 修复）：原来只用 setExactAndAllowWhileIdle 做一次性链式调度，
+     * 只有等到抓取成功后的 finally 回调里才排下一次。只要某次广播丢失、进程被杀、
+     * 或用户手动清理后台，整条链就永久断开 —— 表现就是「关屏过夜后再也不刷新」。
+     * 现在额外注册一个 setInexactRepeating 的兜底闹钟：它由系统自己维持，不依赖任何一次
+     * 抓取是否成功，即使进程被杀掉系统也会在到点时重新拉起广播接收器。
+     *
      * Android 12 (API 31) 之后，没有 SCHEDULE_EXACT_ALARM 授权时调用
      * setExactAndAllowWhileIdle 会直接抛 SecurityException，此时降级为
      * setAndAllowWhileIdle，牺牲精确性换取「一定能刷新」。
      */
     fun scheduleAutoRefresh(context: Context) {
+        scheduleExactOnce(context)
+        scheduleRepeatingBackup(context)
+    }
+
+    /** 一次性精确闹钟：优先享受系统精确唤醒，能压到 30 分钟准点 */
+    private fun scheduleExactOnce(context: Context) {
         try {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val intent = Intent(context, WeatherWidgetAutoRefreshReceiver::class.java).apply {
@@ -112,7 +129,52 @@ object WeatherWidgetSyncHelper {
                 Log.w(TAG, "No exact-alarm permission, downgraded to setAndAllowWhileIdle at $triggerAtMillis")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to schedule auto refresh", e)
+            Log.e(TAG, "Failed to schedule exact auto refresh", e)
+        }
+    }
+
+    /**
+     * 重复兜底闹钟：由系统自行维持的周期调度，不依赖 JS、不依赖上一次抓取结果。
+     * setInexactRepeating 在 Doze 下可能被推迟（这是系统行为），但绝不会「永久不再触发」。
+     * 幂等：同 requestCode 重复调用只会覆盖，不会堆叠出多个闹钟。
+     */
+    private fun scheduleRepeatingBackup(context: Context) {
+        try {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val intent = Intent(context, WeatherWidgetAutoRefreshReceiver::class.java).apply {
+                action = ACTION_AUTO_REFRESH_30MIN
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context, BACKUP_REQUEST_CODE, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.setInexactRepeating(
+                AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + REFRESH_INTERVAL_MILLIS,
+                REFRESH_INTERVAL_MILLIS,
+                pendingIntent
+            )
+            Log.d(TAG, "Scheduled repeating 30-min backup alarm (survives process death)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to schedule repeating backup alarm", e)
+        }
+    }
+
+    /**
+     * 供 JS 读取：原生后台线程最近一次成功抓取的完整 JSON 与时间戳。
+     * 用户从息屏/后台回到 App 时，JS 先用这份缓存立即上屏，再联网刷新，
+     * 避免「打开 App 先看到昨天的数据」。
+     * @return Pair(weatherJson, lastSyncAtMillis)；无缓存时分别为 null / 0
+     */
+    fun readCachedWeather(context: Context): Pair<String?, Long> {
+        return try {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val json = prefs.getString(KEY_WEATHER_DATA, null)
+            val lastSync = prefs.getLong(KEY_LAST_SYNC_AT, 0L)
+            Pair(json, lastSync)
+        } catch (e: Exception) {
+            Log.e(TAG, "readCachedWeather error", e)
+            Pair(null, 0L)
         }
     }
 
@@ -286,7 +348,11 @@ object WeatherWidgetSyncHelper {
                         put("hourly24", hourly24)
                     }
 
-                    prefs.edit().putString(KEY_WEATHER_DATA, payload.toString()).apply()
+                    // 缓存 + 同步时间戳一起落盘：JS 在 App 回到前台时据此判断缓存是否新鲜
+                    prefs.edit()
+                        .putString(KEY_WEATHER_DATA, payload.toString())
+                        .putLong(KEY_LAST_SYNC_AT, System.currentTimeMillis())
+                        .apply()
 
                     // 立即更新全部 4x3, 4x2, 4x1 小部件
                     WeatherWidget4x3Provider.updateAllWidgets(context)

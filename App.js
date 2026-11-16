@@ -21,6 +21,11 @@ import {
 } from './src/services/weatherService';
 import { getAutoCurrentLocation } from './src/services/locationService';
 import {
+  parseNativeCache,
+  nativePayloadToWeather,
+  decideForegroundRefresh,
+} from './src/services/refreshPolicy';
+import {
   loadSelectedSkin,
   saveSelectedSkin,
 } from './src/utils/themeContext';
@@ -41,6 +46,8 @@ import DailyDetailModal from './src/components/DailyDetailModal';
 
 const STORAGE_SAVED_CITIES_KEY = '@pure_moji_weather_saved_cities';
 const STORAGE_CURRENT_CITY_KEY = '@pure_moji_weather_current_city';
+// 最近一次完整天气快照：冷启动/息屏唤醒时先拿它上屏，避免白屏或显示昨天的数据
+const STORAGE_LAST_WEATHER_KEY = '@pure_moji_weather_last_weather';
 
 // 全局统一的自动刷新周期：30 分钟（与原生小部件、界面文案保持一致）
 export const AUTO_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
@@ -85,6 +92,8 @@ export default function App() {
   // 用 ref 镜像最新的城市与刷新状态，避免定时器因依赖变化被反复销毁重建
   const currentCityRef = useRef(currentCity);
   const isRefreshingRef = useRef(false);
+  // 镜像最新的天气数据，供 hydrateFromCache 判断「逐日列表是否还从今天开始」
+  const weatherDataRef = useRef(null);
   // 下拉刷新里已经主动拉过的城市 id：用来让下面的 currentCity useEffect 跳过一次，
   // 避免同一份数据被请求两遍（同时也修掉「刷新指示器提前消失」的时序问题）。
   const skipCityLoadRef = useRef(null);
@@ -97,6 +106,11 @@ export default function App() {
   useEffect(() => {
     currentCityRef.current = currentCity;
   }, [currentCity]);
+
+  // 同理镜像天气数据：跨夜判断需要读到最新一份 daily 的首日日期
+  useEffect(() => {
+    weatherDataRef.current = weatherData;
+  }, [weatherData]);
 
   // 同步维护「刷新中」状态与 ref（ref 立即生效，避免 useState 异步导致的并发重入）
   const setRefreshing = useCallback((value) => {
@@ -130,6 +144,73 @@ export default function App() {
     return null;
   }, []);
 
+  // 从本地快照 + 原生后台缓存里「补水」：让界面立刻有内容，再静默联网更新。
+  // 息屏过夜后回到 App 的第一帧就是新数据，而不是昨天的旧数据或空白页。
+  //
+  // 两层缓存各司其职，必须叠加使用而不是二选一：
+  //   · AsyncStorage 快照 = 完整结构（30 天预报、生活指数、短时降水），但只在上次
+  //     打开 App 时写入，可能很旧；
+  //   · 原生 SharedPreferences = 后台每 30 分钟刷新的精简结构（当前温度/AQI/7天/24小时），
+  //     最新但字段少。
+  // 所以先拿快照当底座，再用原生缓存覆盖温度/天气/AQI —— 既有完整度又有新鲜度。
+  const hydrateFromCache = useCallback(async (city) => {
+    // 1) 先读 AsyncStorage 的完整快照当底座
+    let base = null;
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_LAST_WEATHER_KEY);
+      if (stored) {
+        const snapshot = JSON.parse(stored);
+        if (snapshot && snapshot.data && typeof snapshot.data === 'object') {
+          // 快照来自另一个城市时不要拿来顶替当前城市，避免串城市
+          if (!city || !snapshot.cityId || snapshot.cityId === city.id) {
+            base = snapshot.data;
+            if (typeof snapshot.savedAt === 'number') {
+              lastRefreshTimestampRef.current = Math.max(
+                lastRefreshTimestampRef.current,
+                snapshot.savedAt
+              );
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.log('Read weather snapshot failed:', e);
+    }
+
+    // 2) 再用原生后台缓存覆盖最新观测值（它比快照新，且 App 被杀掉也在更新）
+    let nativeApplied = false;
+    try {
+      const nativeModule = NativeModules.WeatherWidgetModule;
+      if (nativeModule && nativeModule.readCachedWeather) {
+        const raw = await nativeModule.readCachedWeather();
+        const parsed = parseNativeCache(raw);
+        // 原生缓存里的城市与当前城市不一致时跳过（用户刚切了城市，别拿旧城市顶上）
+        const cacheCity = parsed && parsed.payload ? parsed.payload.city : null;
+        const cityLabel = city ? city.city || city.name : null;
+        const cityMatches =
+          !cacheCity || !cityLabel || cacheCity.indexOf(cityLabel) >= 0 || cityLabel.indexOf(cacheCity) >= 0;
+
+        if (parsed && cityMatches) {
+          base = nativePayloadToWeather(parsed.payload, base);
+          nativeApplied = true;
+          lastRefreshTimestampRef.current = Math.max(
+            lastRefreshTimestampRef.current,
+            parsed.lastSyncAt
+          );
+        }
+      }
+    } catch (e) {
+      console.log('Read native cache failed:', e);
+    }
+
+    if (base) {
+      setWeatherData(base);
+      // 有缓存就不再显示整页 loading，用户能立刻看到内容
+      setIsLoading(false);
+    }
+    return { weather: base, nativeApplied };
+  }, []);
+
   // 初始化加载持久化城市数据与选中的皮肤，并自动执行 GPS 定位
   useEffect(() => {
     async function loadInitialData() {
@@ -140,6 +221,7 @@ export default function App() {
           loadSelectedSkin(),
         ]);
 
+        let initialCity = NANCHANG_DEFAULT;
         if (storedList) {
           const parsed = JSON.parse(storedList);
           if (Array.isArray(parsed) && parsed.length > 0) {
@@ -150,11 +232,15 @@ export default function App() {
           const parsedCur = JSON.parse(storedCurrent);
           if (parsedCur && parsedCur.latitude) {
             setCurrentCity(parsedCur);
+            initialCity = parsedCur;
           }
         }
         if (storedSkin) {
           setCurrentSkinId(storedSkin);
         }
+
+        // 先上屏缓存，再联网；这样「冷启动 + 弱网」也不会白屏等 10 秒
+        await hydrateFromCache(initialCity);
 
         // 每次打开软件，自动根据 GPS 获取高精度当前位置并更新天气
         autoDetectLocation(true);
@@ -163,7 +249,7 @@ export default function App() {
       }
     }
     loadInitialData();
-  }, [autoDetectLocation]);
+  }, [autoDetectLocation, hydrateFromCache]);
 
   // 加载天气数据
   const loadWeather = useCallback(async (city, showLoadingIndicator = true) => {
@@ -227,6 +313,13 @@ export default function App() {
         }
       }
       lastRefreshTimestampRef.current = Date.now();
+
+      // 落一份完整快照：冷启动、息屏唤醒、断网时先用它上屏，
+      // 保证用户看到的至少不是空白页，也不会是「昨天的数据还挂着不提示」。
+      AsyncStorage.setItem(
+        STORAGE_LAST_WEATHER_KEY,
+        JSON.stringify({ savedAt: Date.now(), cityId: city.id, data })
+      ).catch((e) => console.log('Persist weather snapshot failed:', e));
     } catch (err) {
       console.error(err);
       setErrorMessage('网络连接异常或卫星数据同步超时，请点击重试');
@@ -296,19 +389,47 @@ export default function App() {
     };
   }, [handleRefresh]);
 
-  // 前台恢复监听：若软件切回前台时距离上次刷新已超过 30 分钟，自动刷新
+  // 前台恢复监听：息屏/后台回到前台时，先用缓存补水再联网刷新。
+  //
+  // 历史 bug（v1.2.5 修复）：屏幕熄灭后 JS 引擎被系统冻结，App 内的 setInterval
+  // 完全不会跑；旧代码又只在「elapsed >= 30 分钟」且「联网成功」时才更新界面，
+  // 于是用户睡一觉醒来看到的是昨天的数据，甚至时间还停在昨晚。
+  // 现在：①原生侧有 30 分钟闹钟 + 亮屏广播持续抓取并落缓存；
+  //      ②回到前台先 hydrateFromCache() 立刻显示缓存；
+  //      ③只要时间戳过期（含系统时间倒退）就强制联网刷新。
   useEffect(() => {
     const sub = AppState.addEventListener('change', state => {
-      if (state === 'active') {
-        const elapsed = Date.now() - lastRefreshTimestampRef.current;
-        if (elapsed >= AUTO_REFRESH_INTERVAL_MS) {
-          console.log(`[AppState] 超过 ${AUTO_REFRESH_INTERVAL_MINUTES} 分钟切回前台，自动刷新天气`);
-          handleRefresh();
-        }
+      if (state !== 'active') return;
+
+      const elapsed = Date.now() - lastRefreshTimestampRef.current;
+
+      // 两条判据缺一不可：
+      //   · 时间戳过期（含系统时间被改到过去）→ 数据确实旧了；
+      //   · 逐日列表首日不是今天 → 整夜待机虽然原生缓存很新，列表却还停在昨天。
+      const decision = decideForegroundRefresh({
+        lastRefreshAt: lastRefreshTimestampRef.current,
+        now: Date.now(),
+        intervalMs: AUTO_REFRESH_INTERVAL_MS,
+        daily: weatherDataRef.current ? weatherDataRef.current.daily : null,
+      });
+
+      if (!decision.shouldRefresh) return;
+
+      if (decision.reason === 'cross-midnight') {
+        console.log('[AppState] 逐日列表已跨天（首日不是今天），强制联网重新拉取');
+      } else {
+        console.log(
+          `[AppState] 切回前台（距上次 ${Math.round(elapsed / 60000)} 分钟，阈值 ${AUTO_REFRESH_INTERVAL_MINUTES} 分钟），先补缓存再刷新天气`
+        );
       }
+
+      // 先补缓存让界面立即变新，再发起联网刷新
+      hydrateFromCache(currentCityRef.current).finally(() => {
+        handleRefresh();
+      });
     });
     return () => sub.remove();
-  }, [handleRefresh]);
+  }, [handleRefresh, hydrateFromCache]);
 
   // 切换选中城市
   const handleSelectCity = (city) => {

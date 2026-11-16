@@ -1,5 +1,48 @@
 # 无广告天气 (No Ad Weather) - 更新日志
 
+## [v1.2.5] - 2026-11-16
+
+本轮修复「关屏以后不自动刷新，睡一夜起来还是昨天的数据」的问题，并补齐一整套可自动化的刷新链路验证。
+
+### 😴 关屏 / 后台 / 过夜刷新（核心）
+
+用户反馈：「关屏以后，不会自动刷新数据，睡觉以后，起来时间和数据还是昨天的。」
+
+**三条独立失效链路，逐一修掉：**
+
+1. **JS 定时器在息屏时根本不跑**（根因）
+   - 屏幕熄灭后 JS 引擎被系统冻结，App 内的 `setInterval` 不会执行 —— 也就是说用 App 内定时器做「30 分钟刷新」这条路，锁屏后必然失效。
+   - 现状不依赖它：原生侧独立承担周期抓取，JS 定时器只负责「App 亮屏在使用时」的补充刷新。
+
+2. **原生闹钟是「一次性链式调度」，断一次就永久停摆**
+   - 旧实现只用 `setExactAndAllowWhileIdle` 排下一次闹钟，而且**要等抓取完成后的 finally 回调里才排**。进程被杀、抓取中途被回收、或 Android 12+ 无精确闹钟权限，链条就断，从此再不刷新。
+   - 修复：`scheduleAutoRefresh()` 拆成两路 —— `scheduleExactOnce()`（一次性精确闹钟，≥30 分钟）+ `scheduleRepeatingBackup()`（`setInexactRepeating` 系统级重复闹钟，独立 `BACKUP_REQUEST_CODE = 10031`，不受单次失败影响，进程被杀也能自愈）。
+   - `WeatherWidgetAutoRefreshReceiver` 改为**先排下次闹钟、再发起网络请求**，抓取途中被回收也不影响下一次。
+
+3. **原生抓到了新数据，但 App 界面拿不到**
+   - 旧实现后台抓取只写入 `SharedPreferences` 并刷新桌面小部件，React state 完全不知道；回到 App 仍显示旧数据。
+   - 修复：新增 `KEY_LAST_SYNC_AT` 记录同步时间戳；`WeatherWidgetModule` 新增 `readCachedWeather()` / `refreshInBackground()` 两个 `@ReactMethod`；App 启动与回前台时先 `hydrateFromCache()` 把原生缓存补水到界面。
+
+**配套增强：**
+- `MainApplication` 动态注册 `ACTION_SCREEN_ON` + `ACTION_USER_PRESENT`（Android 8+ 收不到 manifest 静态注册的隐式广播），亮屏即触发一次调度 + 抓取。
+- `WeatherWidgetAutoRefreshReceiver` 增加 `ACTION_LOCKED_BOOT_COMPLETED`（直接启动，免解锁即可恢复闹钟）。
+- App 回前台不再只看 30 分钟阈值：新增 `src/services/refreshPolicy.js` 的 `shouldRefreshOnForeground()`，时间戳无效、为 0、系统时间被改到过去（elapsed < 0）一律强制刷新。
+- 新增 `STORAGE_LAST_WEATHER_KEY` 完整快照持久化：冷启动弱网时先显示上次的完整 30 天数据，不再白屏等待。
+- 缓存合并策略：`nativePayloadToWeather()` 用缓存覆盖当前温度/天气/AQI，但**保留**已有的 30 天预报与生活指数 —— 绝不把 30 天降级成原生缓存里的 7 天。
+- 新增跨夜保护 `isDailyCoveringToday()`：原生后台可能 5 分钟前刚刷过缓存（时间戳很新），但逐日列表还是昨晚落下的那份，首行会挂着昨天的日期。现在只要首日不是今天，回前台就强制联网重拉，不再出现「时间新、日期旧」的错位。
+- 前台恢复判定收敛为单一纯函数 `decideForegroundRefresh()`：一次返回「时间是否过期 / 列表是否跨夜 / 该不该刷 / 原因」，App 只按 `decision.shouldRefresh` 分支，避免两条判据在多处各写一份而走偏。
+- `MainApplication` 的动态注册补上 Android 13+ 必需的 `Context.RECEIVER_NOT_EXPORTED`，避免 Android 14 上直接抛 SecurityException 导致亮屏刷新整条链路失效。
+
+### 🧪 测试
+
+- `scripts/verify_refresh.js` 从 46 项扩到 **68 项**，新增第 9 节「关屏与后台刷新可靠性」22 项断言（重复兜底闹钟、精确/兜底拆分、Receiver 调度顺序、亮屏广播覆盖、动态注册、Android 13+ 导出性声明、同步时间戳落盘、两个新 `@ReactMethod`、refreshPolicy 三个导出、跨夜列表检测、App 补水接线）。
+- 新增 `scripts/test_refresh_policy.mjs`（`npm run test:policy`）：**113 项断言**，覆盖时间戳异常（0/null/NaN/负数/未来值）、边界（29:59 不刷 / 30:00 刷）、整夜 9 小时场景、系统时间倒退、缓存解析的 12 种脏数据、跨夜列表判定（昨天 / 去年同月同日 / 跨年夜 / 无日期结构）、`decideForegroundRefresh` 的六种合并场景（缓存 4 分钟但列表停在昨天、时间戳在未来等）、以及「合并后仍是 30 天不被降级」。
+- 新增 `scripts/test_overnight_refresh.mjs`（`npm run test:overnight`）：**33 项断言**，用「23:00 最后完整刷新 → 整夜 16 次原生后台刷新 → 07:55 亮屏补刷 → 08:00 睁眼」的真实时间线，把回前台的三步（读原生缓存 → 与完整快照合并上屏 → 判断是否需联网重拉）跑成真实函数调用，并核对原生侧三个必要产物（重复兜底闹钟、同步时间戳、缓存回读接口）。这条直接复现并回归了用户反馈的「睡一觉起来还是昨天的数据」。
+- 新增 `npm run test:refresh` = `verify_refresh` + `test:policy` + `test:overnight` 一条命令跑完刷新链路。
+
+### 🔖 版本
+- versionCode 13 → 14，versionName 1.2.4 → 1.2.5。
+
 ## [v1.2.4] - 2026-11-15
 
 本轮修复「7-15 天预报实际只有 6-7 天」的问题，并把逐日预报扩展到 30 天。

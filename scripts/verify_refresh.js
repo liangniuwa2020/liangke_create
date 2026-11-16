@@ -115,7 +115,8 @@ if (autoRefreshEffectMatch) {
 
 // AppState 前台恢复阈值也必须用同一常量
 assert(
-  /elapsed\s*>=\s*AUTO_REFRESH_INTERVAL_MS/.test(appJs),
+  /elapsed\s*>=\s*AUTO_REFRESH_INTERVAL_MS/.test(appJs) ||
+    /intervalMs:\s*AUTO_REFRESH_INTERVAL_MS/.test(appJs),
   'AppState 前台恢复使用 AUTO_REFRESH_INTERVAL_MS 阈值'
 );
 assert(
@@ -319,6 +320,123 @@ assert(
 assert(
   !fs.existsSync(path.join(ROOT, 'android/app/src/main/assets/index.android.bundle')),
   '工作区不存在预置的 index.android.bundle（由构建期生成）'
+);
+
+// ---------------------------------------------------------------
+// 9. 关屏 / 后台 / 整夜待机后仍要能刷新（v1.2.5 新增）
+// ---------------------------------------------------------------
+section('9. 关屏与后台刷新可靠性');
+
+// 9.1 原生闹钟必须是「一次性精确 + 系统重复兜底」双通道。
+// 历史 bug：只用 setExactAndAllowWhileIdle 做链式调度，下一次闹钟要等抓取成功后的
+// finally 才排；进程一旦被杀，链就永久断开，表现为「关屏过夜后不再刷新」。
+assert(
+  /setInexactRepeating/.test(helper),
+  '原生注册了 setInexactRepeating 重复兜底闹钟（进程被杀也能自愈）'
+);
+assert(
+  /fun scheduleAutoRefresh\(/.test(helper) && /scheduleExactOnce\(/.test(helper),
+  'scheduleAutoRefresh 拆分为精确闹钟 + 兜底闹钟两路'
+);
+assert(
+  /BACKUP_REQUEST_CODE/.test(helper),
+  '兜底闹钟使用独立 requestCode，避免覆盖一次性精确闹钟'
+);
+
+// 9.2 广播接收器必须「先排下次闹钟，再抓数据」，否则抓取中途被杀就再也不会排。
+const receiver = read('android/app/src/main/java/com/pure/mojiweather/WeatherWidgetAutoRefreshReceiver.kt');
+const scheduleIdx = receiver.indexOf('scheduleAutoRefresh(appContext)');
+const fetchIdx = receiver.indexOf('fetchWeatherInBackground');
+assert(
+  scheduleIdx !== -1 && fetchIdx !== -1 && scheduleIdx < fetchIdx,
+  'Receiver 先调用 scheduleAutoRefresh 再发起网络请求（链路自愈）'
+);
+assert(
+  /ACTION_SCREEN_ON/.test(receiver) && /ACTION_LOCKED_BOOT_COMPLETED/.test(receiver),
+  'Receiver 覆盖亮屏与直接启动完成广播'
+);
+
+// 9.3 Android 8+ 隐式广播无法静态注册，亮屏/解锁必须动态注册。
+const mainApp = read('android/app/src/main/java/com/pure/mojiweather/MainApplication.kt');
+assert(
+  /registerReceiver\(/.test(mainApp) && /ACTION_SCREEN_ON/.test(mainApp),
+  'MainApplication 动态注册亮屏监听（manifest 静态注册收不到隐式广播）'
+);
+
+// 9.4 原生后台抓取必须记录同步时间戳，否则 JS 无法判断缓存新旧。
+assert(
+  /KEY_LAST_SYNC_AT/.test(helper),
+  '原生缓存写入同步时间戳 KEY_LAST_SYNC_AT'
+);
+assert(
+  /putLong\(KEY_LAST_SYNC_AT/.test(helper),
+  '抓取成功后把时间戳一起落盘'
+);
+
+// 9.5 JS 必须能读回原生缓存并立即上屏。
+const widgetModule = read('android/app/src/main/java/com/pure/mojiweather/WeatherWidgetModule.kt');
+assert(
+  /fun readCachedWeather\(/.test(widgetModule),
+  'WeatherWidgetModule 暴露 readCachedWeather() 供 JS 读原生缓存'
+);
+assert(
+  /fun refreshInBackground\(/.test(widgetModule),
+  'WeatherWidgetModule 暴露 refreshInBackground() 供 JS 兜底触发'
+);
+
+const policy = read('src/services/refreshPolicy.js');
+assert(
+  /export function shouldRefreshOnForeground/.test(policy),
+  'refreshPolicy 导出 shouldRefreshOnForeground（前台恢复判定抽成纯函数）'
+);
+assert(
+  /export function parseNativeCache/.test(policy),
+  'refreshPolicy 导出 parseNativeCache（防御式解析原生缓存）'
+);
+assert(
+  /export function nativePayloadToWeather/.test(policy),
+  'refreshPolicy 导出 nativePayloadToWeather（缓存转页面结构）'
+);
+
+assert(
+  /hydrateFromCache/.test(appJs) && /readCachedWeather/.test(appJs),
+  'App.js 在启动/前台恢复时先用原生缓存补水再联网'
+);
+assert(
+  /STORAGE_LAST_WEATHER_KEY/.test(appJs),
+  'App.js 持久化完整天气快照（冷启动弱网也有内容可显示）'
+);
+assert(
+  /decideForegroundRefresh\(/.test(appJs),
+  'App.js 前台恢复改用 decideForegroundRefresh 合并判据'
+);
+
+// 9.6 跨夜保护：原生缓存可能「时间很新但逐日列表还是昨天的」。
+// 实测表现：用户睡一觉醒来，顶部时间是新的，逐日第一行却写着「今天」加昨天的日期。
+assert(
+  /registerReceiver\(receiver, filter, Context\.RECEIVER_NOT_EXPORTED\)/.test(mainApp) ||
+    /Context\.RECEIVER_NOT_EXPORTED/.test(mainApp),
+  '动态注册在 Android 13+ 传 RECEIVER_NOT_EXPORTED（否则 Android 14 抛 SecurityException）'
+);
+assert(
+  /export function isDailyCoveringToday/.test(policy),
+  'refreshPolicy 导出 isDailyCoveringToday（判断逐日列表是否还从今天开始）'
+);
+assert(
+  /export function decideForegroundRefresh/.test(policy),
+  'refreshPolicy 导出 decideForegroundRefresh（时间 + 跨夜合并判据）'
+);
+assert(
+  /isDailyCoveringToday\(/.test(policy),
+  'decideForegroundRefresh 内部复用 isDailyCoveringToday 跨夜判定'
+);
+assert(
+  /decision\.shouldRefresh/.test(appJs),
+  'App.js 按合并判据决定是否刷新（时间过期或跨夜任一成立）'
+);
+assert(
+  /weatherDataRef\.current\s*=\s*weatherData/.test(appJs),
+  'App.js 用 weatherDataRef 镜像天气数据，避免闭包读到旧 state'
 );
 
 // ---------------------------------------------------------------

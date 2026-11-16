@@ -72,6 +72,35 @@ class WeatherWidgetModule(private val reactContext: ReactApplicationContext) : R
     }
 
     /**
+     * 供 JS 读取当前安装包的真实版本号。
+     *
+     * 为什么不由 JS 侧硬编码：版本号散落在 package.json / app.json / build.gradle 三处，
+     * 界面上再写一份字符串，升级时必然漏改。这里直接读 PackageInfo.versionName，
+     * 屏幕上显示的一定就是当前这个 APK 的版本（versionCode 一并返回便于排查）。
+     */
+    @ReactMethod
+    fun getAppVersion(promise: Promise) {
+        try {
+            val info = reactContext.packageManager.getPackageInfo(reactContext.packageName, 0)
+            val versionName = info.versionName ?: "unknown"
+            val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                info.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                info.versionCode.toLong()
+            }
+            val result = Arguments.createMap().apply {
+                putString("versionName", versionName)
+                putDouble("versionCode", versionCode.toDouble())
+                putString("packageName", reactContext.packageName)
+            }
+            promise.resolve(result)
+        } catch (e: Exception) {
+            promise.reject("E_VERSION", e)
+        }
+    }
+
+    /**
      * 供 JS 在 App 回到前台 / 从息屏唤醒时调用：
      * 读回原生后台线程最近一次成功抓取的缓存与时间戳。
      * 有缓存就先用它立即上屏，再静默联网刷新，避免「打开 App 先看到昨天的数据」。

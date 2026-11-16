@@ -11,6 +11,8 @@ function formatUpdateTime(value) {
 export default function HeaderBar({
   city,
   updateTime,
+  versionLabel,
+  nextRefreshHint,
   onOpenCityModal,
   onRefresh,
   isRefreshing,
@@ -44,6 +46,11 @@ export default function HeaderBar({
           <Text style={styles.citySub} numberOfLines={1}>
             {city.street ? `${city.street} · ` : city.district ? `${city.district} · ` : (city.admin1 && !city.name.includes(city.admin1) ? `${city.admin1} · ` : '')}
             {updateTime ? `${formatUpdateTime(updateTime)} 更新` : '同步中...'}
+          </Text>
+          {/* 版本与刷新节奏提示：版本号来自原生 PackageInfo，不写死，升级包后自动跟着变 */}
+          <Text style={styles.metaRow} numberOfLines={1}>
+            <Text style={styles.versionTag}>{versionLabel || 'v—'}</Text>
+            {nextRefreshHint ? <Text style={styles.refreshHint}>{` · ${nextRefreshHint}`}</Text> : null}
           </Text>
         </View>
       </TouchableOpacity>
@@ -145,6 +152,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: 'rgba(255, 255, 255, 0.85)',
     marginTop: 2,
+  },
+  metaRow: {
+    marginTop: 2,
+  },
+  versionTag: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.62)',
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  refreshHint: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.48)',
   },
   actions: {
     flexDirection: 'row',

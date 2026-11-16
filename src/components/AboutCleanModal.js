@@ -1,8 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { FALLBACK_VERSION_NAME, formatVersionLabel } from '../services/appInfo';
 
-export default function AboutCleanModal({ visible, onClose }) {
+export default function AboutCleanModal({ visible, onClose, versionLabel }) {
+  // 版本号优先用原生 PackageInfo 读到的真实 versionName；
+  // 原生模块不可用时才退回打包期常量，绝不写死在文案里。
+  const shownVersion = versionLabel || formatVersionLabel(FALLBACK_VERSION_NAME);
   const highlights = [
     {
       icon: 'ban-outline',
@@ -68,7 +72,7 @@ export default function AboutCleanModal({ visible, onClose }) {
             ))}
 
             <View style={styles.versionCard}>
-              <Text style={styles.versionTitle}>版本信息：v1.2.5 (关屏后台持续 30 分钟刷新 · 小部件免跳转即时更新)</Text>
+              <Text style={styles.versionTitle}>版本信息：{shownVersion} (关屏后台持续 30 分钟刷新 · 小部件免跳转即时更新)</Text>
               <Text style={styles.versionSub}>专为追求清爽体验的用户量身定制</Text>
             </View>
           </ScrollView>

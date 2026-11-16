@@ -484,6 +484,123 @@ function main() {
     /weatherDataRef\.current\s*=\s*weatherData/.test(appSrc) && /weatherDataRef\.current\.daily/.test(appSrc)
   );
 
+  console.log('\n[5e] 看门狗（AUTO_REFRESH_WATCHDOG_MS / shouldRunWatchdogTick / formatNextRefreshHint）');
+  const {
+    shouldRunWatchdogTick,
+    formatNextRefreshHint,
+    AUTO_REFRESH_WATCHDOG_MS,
+  } = api;
+
+  check(
+    '导出 AUTO_REFRESH_WATCHDOG_MS',
+    Number.isFinite(AUTO_REFRESH_WATCHDOG_MS),
+    `实际 ${AUTO_REFRESH_WATCHDOG_MS}`
+  );
+  check(
+    '看门狗周期远小于刷新周期',
+    AUTO_REFRESH_WATCHDOG_MS > 0 && AUTO_REFRESH_WATCHDOG_MS < INTERVAL,
+    `看门狗 ${AUTO_REFRESH_WATCHDOG_MS}ms / 刷新 ${INTERVAL}ms`
+  );
+  check(
+    '看门狗周期不超过 5 分钟（再长就感觉不到"自动"）',
+    AUTO_REFRESH_WATCHDOG_MS <= 5 * MINUTE,
+    `实际 ${AUTO_REFRESH_WATCHDOG_MS}ms`
+  );
+
+  check(
+    '正在刷新时看门狗不重复触发',
+    shouldRunWatchdogTick({ lastRefreshAt: now - 40 * MINUTE, now, intervalMs: INTERVAL, isRefreshing: true }) === false
+  );
+  check(
+    '未刷新且已过期 → 触发',
+    shouldRunWatchdogTick({ lastRefreshAt: now - 31 * MINUTE, now, intervalMs: INTERVAL, isRefreshing: false }) === true
+  );
+  check(
+    '未刷新且未过期 → 不触发',
+    shouldRunWatchdogTick({ lastRefreshAt: now - 29 * MINUTE, now, intervalMs: INTERVAL, isRefreshing: false }) === false
+  );
+  check(
+    '从未刷新（时间戳 0）→ 触发',
+    shouldRunWatchdogTick({ lastRefreshAt: 0, now, intervalMs: INTERVAL, isRefreshing: false }) === true
+  );
+  // 这条是本轮 bug 的核心回归：定时器被重建也不会丢计时，
+  // 因为判据只依赖绝对时间戳，与「定时器已经跑了多久」无关。
+  check(
+    '多次 tick 之间不累积计时（同一时间戳重复判定结果稳定）',
+    shouldRunWatchdogTick({ lastRefreshAt: now - 10 * MINUTE, now, intervalMs: INTERVAL, isRefreshing: false }) ===
+      shouldRunWatchdogTick({ lastRefreshAt: now - 10 * MINUTE, now, intervalMs: INTERVAL, isRefreshing: false })
+  );
+
+  check(
+    '刚刷新完 → 提示还剩整轮',
+    formatNextRefreshHint(now, INTERVAL, now) === '下次刷新 30 分钟后',
+    formatNextRefreshHint(now, INTERVAL, now)
+  );
+  check(
+    '已过 18 分钟 → 提示 12 分钟后',
+    formatNextRefreshHint(now - 18 * MINUTE, INTERVAL, now) === '下次刷新 12 分钟后',
+    formatNextRefreshHint(now - 18 * MINUTE, INTERVAL, now)
+  );
+  check(
+    '已过期 → 提示即将刷新',
+    formatNextRefreshHint(now - 40 * MINUTE, INTERVAL, now) === '即将自动刷新',
+    formatNextRefreshHint(now - 40 * MINUTE, INTERVAL, now)
+  );
+  check(
+    '剩余不足 1 分钟 → 单独文案',
+    formatNextRefreshHint(now - INTERVAL + 30 * 1000, INTERVAL, now) === '下次刷新不到 1 分钟',
+    formatNextRefreshHint(now - INTERVAL + 30 * 1000, INTERVAL, now)
+  );
+  check(
+    '时间戳无效 → 等待首次同步',
+    formatNextRefreshHint(0, INTERVAL, now) === '等待首次同步',
+    formatNextRefreshHint(0, INTERVAL, now)
+  );
+  check(
+    '系统时间倒退 → 即将自动刷新（不显示负数）',
+    formatNextRefreshHint(now + 10 * MINUTE, INTERVAL, now) === '即将自动刷新',
+    formatNextRefreshHint(now + 10 * MINUTE, INTERVAL, now)
+  );
+
+  console.log('\n[5f] 版本号读取（appInfo.js）');
+  const appInfoSrc = fs.readFileSync(path.join(ROOT, 'src/services/appInfo.js'), 'utf8');
+  const pkgJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const fallbackMatch = appInfoSrc.match(/FALLBACK_VERSION_NAME\s*=\s*'([^']+)'/);
+
+  check('appInfo.js 存在', appInfoSrc.length > 0);
+  check('导出 getAppVersion', /export async function getAppVersion/.test(appInfoSrc));
+  check('导出 formatVersionLabel', /export function formatVersionLabel/.test(appInfoSrc));
+  check(
+    '兜底版本号与 package.json 一致（否则装了新包界面还显示旧版本）',
+    fallbackMatch && fallbackMatch[1] === pkgJson.version,
+    `appInfo=${fallbackMatch ? fallbackMatch[1] : 'N/A'} package.json=${pkgJson.version}`
+  );
+  check(
+    '优先读原生 PackageInfo 而非写死',
+    /NativeModules\?\.WeatherWidgetModule/.test(appInfoSrc) && /getAppVersion\(\)/.test(appInfoSrc)
+  );
+  check(
+    'App.js 导入 getAppVersion 与 formatVersionLabel',
+    /import\s*\{[^}]*getAppVersion[^}]*\}\s*from\s*'\.\/src\/services\/appInfo'/.test(appSrc)
+  );
+  check('App.js 用 state 保存版本号文案', /setVersionLabel\(/.test(appSrc));
+  check(
+    'App.js 把版本号传给 HeaderBar（界面直接可见）',
+    /versionLabel=\{versionLabel\}/.test(appSrc)
+  );
+  check(
+    'App.js 把下次刷新提示传给 HeaderBar',
+    /nextRefreshHint=\{nextRefreshHint\}/.test(appSrc)
+  );
+  check(
+    'App.js 的看门狗依赖数组为空（定时器永不因依赖变化重建）',
+    /const timer = setInterval\(tick,\s*AUTO_REFRESH_WATCHDOG_MS\);[\s\S]{0,200}?\}, \[\]\);/.test(appSrc)
+  );
+  check(
+    'App.js 用 handleRefreshRef 中转刷新函数',
+    /handleRefreshRef\.current\s*=\s*handleRefresh/.test(appSrc)
+  );
+
   report();
 }
 

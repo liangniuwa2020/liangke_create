@@ -24,11 +24,15 @@ import {
   parseNativeCache,
   nativePayloadToWeather,
   decideForegroundRefresh,
+  shouldRunWatchdogTick,
+  formatNextRefreshHint,
+  AUTO_REFRESH_WATCHDOG_MS,
 } from './src/services/refreshPolicy';
 import {
   loadSelectedSkin,
   saveSelectedSkin,
 } from './src/utils/themeContext';
+import { getAppVersion, formatVersionLabel } from './src/services/appInfo';
 import WeatherBackground from './src/components/WeatherBackground';
 import HeaderBar from './src/components/HeaderBar';
 import ClockWeatherWidget from './src/components/ClockWeatherWidget';
@@ -88,6 +92,10 @@ export default function App() {
   const [isDailyDetailVisible, setIsDailyDetailVisible] = useState(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState(null);
   const lastRefreshTimestampRef = useRef(0);
+  // 当前安装包的真实版本号（从原生 PackageInfo 读，不写死）
+  const [versionLabel, setVersionLabel] = useState('');
+  // 距下次自动刷新的提示，由看门狗每拍更新，让用户能确认定时器真的在跑
+  const [nextRefreshHint, setNextRefreshHint] = useState('');
 
   // 用 ref 镜像最新的城市与刷新状态，避免定时器因依赖变化被反复销毁重建
   const currentCityRef = useRef(currentCity);
@@ -101,6 +109,21 @@ export default function App() {
   // 记录最近一次成功刷新的时间（在 effect 中初始化，避免 render 期间调用 Date.now()）
   useEffect(() => {
     lastRefreshTimestampRef.current = Date.now();
+  }, []);
+
+  // 读取当前安装包版本号并显示在顶部信息栏
+  useEffect(() => {
+    let alive = true;
+    getAppVersion()
+      .then((info) => {
+        if (alive) setVersionLabel(formatVersionLabel(info.versionName));
+      })
+      .catch(() => {
+        if (alive) setVersionLabel(formatVersionLabel(''));
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -374,20 +397,62 @@ export default function App() {
   }, [autoDetectLocation, loadWeather, setRefreshing]);
 
   // 核心需求：每 30 分钟自动刷新一次软件，更新天气状态并同步至桌面小部件
-  // 注意：这里只依赖稳定的 handleRefresh，绝不能把 currentCity 放进依赖数组，
-  // 否则每次 GPS 定位更新城市都会销毁并重建定时器，导致定时器永远等不到触发（历史 bug）。
+  //
+  // 历史 bug（v1.2.6 修复）：旧写法是 setInterval(handleRefresh, 30 分钟)。
+  // 计时是挂在「定时器对象」上的 —— handleRefresh 的 useCallback 依赖
+  // (autoDetectLocation / loadWeather / setRefreshing) 只要身份变化一次，React 就会
+  // 执行 cleanup → clearInterval → 重建定时器，30 分钟从头开始数；再加上 Android 上
+  // JS 定时器在息屏/后台会被冻结，用户看到的直接结果就是「不点刷新就永远停在 16 点」。
+  //
+  // 现在改成「看门狗轮询 + 绝对时间戳判定」：
+  //   · 每 60 秒醒一次，只做一次纯计算 Date.now() - lastRefreshTimestampRef.current；
+  //   · 差值达到 30 分钟才真正联网刷新；
+  //   · 定时器无论被重建多少次，计时基准都是那个绝对时间戳，不会被清零。
+  // handleRefresh 通过 ref 调用，所以定时器 effect 的依赖数组可以保持为空 —— 它永远
+  // 不会因为闭包/身份变化被销毁重建。
+  const handleRefreshRef = useRef(null);
   useEffect(() => {
-    console.log(`[AutoRefresh] 已启动 ${AUTO_REFRESH_INTERVAL_MINUTES} 分钟自动刷新定时器`);
-    const timer = setInterval(() => {
-      if (isRefreshingRef.current) return;
-      console.log(`[AutoRefresh] 达到 ${AUTO_REFRESH_INTERVAL_MINUTES} 分钟，自动刷新天气并同步至桌面小部件`);
-      handleRefresh();
-    }, AUTO_REFRESH_INTERVAL_MS);
+    handleRefreshRef.current = handleRefresh;
+  }, [handleRefresh]);
+
+  useEffect(() => {
+    console.log(`[AutoRefresh] 已启动 ${AUTO_REFRESH_INTERVAL_MINUTES} 分钟自动刷新看门狗（${Math.round(AUTO_REFRESH_WATCHDOG_MS / 1000)} 秒轮询一次）`);
+
+    const refreshHint = () => {
+      setNextRefreshHint(
+        formatNextRefreshHint(lastRefreshTimestampRef.current, AUTO_REFRESH_INTERVAL_MS)
+      );
+    };
+
+    const tick = () => {
+      const ageMs = Date.now() - lastRefreshTimestampRef.current;
+      const due = shouldRunWatchdogTick({
+        lastRefreshAt: lastRefreshTimestampRef.current,
+        now: Date.now(),
+        intervalMs: AUTO_REFRESH_INTERVAL_MS,
+        isRefreshing: isRefreshingRef.current,
+      });
+
+      // 无论是否到期都刷新一次倒计时文案：这行字就是用户判断「定时器还活着」的依据
+      refreshHint();
+
+      if (!due) return;
+
+      console.log(
+        `[AutoRefresh] 距上次成功刷新 ${Math.round(ageMs / 60000)} 分钟，达到 ${AUTO_REFRESH_INTERVAL_MINUTES} 分钟阈值，自动刷新天气并同步至桌面小部件`
+      );
+      const runner = handleRefreshRef.current;
+      if (typeof runner === 'function') runner();
+    };
+
+    // 进入前台后先自检一次：不等满 60 秒，避免「刚打开就显示旧数据」
+    tick();
+    const timer = setInterval(tick, AUTO_REFRESH_WATCHDOG_MS);
     return () => {
-      console.log('[AutoRefresh] 清理自动刷新定时器');
+      console.log('[AutoRefresh] 清理自动刷新看门狗');
       clearInterval(timer);
     };
-  }, [handleRefresh]);
+  }, []);
 
   // 前台恢复监听：息屏/后台回到前台时，先用缓存补水再联网刷新。
   //
@@ -475,6 +540,8 @@ export default function App() {
           <HeaderBar
             city={currentCity}
             updateTime={weatherData?.current?.updateTime}
+            versionLabel={versionLabel}
+            nextRefreshHint={nextRefreshHint}
             onOpenCityModal={() => setIsCityModalVisible(true)}
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}
@@ -626,6 +693,7 @@ export default function App() {
           <AboutCleanModal
             visible={isCleanModalVisible}
             onClose={() => setIsCleanModalVisible(false)}
+            versionLabel={versionLabel}
           />
 
           {/* 皮肤中心弹窗 */}

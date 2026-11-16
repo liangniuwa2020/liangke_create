@@ -42,6 +42,7 @@
     - 支持深黑 / 极简白卡 / 通透毛玻璃三套皮肤，点击小部件图标即时换肤
     - **关屏、后台、整夜待机后依然 30 分钟刷新一次**：原生侧用「一次性精确闹钟 + 系统级重复兜底闹钟 + 亮屏/开机广播」三重保障，进程被杀也能自愈；抓取结果连同同步时间戳写入本地，App 回到前台先补水再联网，所以睡醒打开就是当天的最新数据
     - Android 12+ 无精确闹钟权限时自动降级为 `setAndAllowWhileIdle`；系统重复闹钟作为兜底始终存在
+    - **前台看门狗**：App 内用「60 秒轮询 + 绝对时间戳判定」而不是 `setInterval(刷新, 30 分钟)` —— 后者一旦 useCallback 身份变化就会被重建、计时清零，导致「不手动点刷新就永远不刷新」（v1.2.6 修复）；顶部信息栏同时显示「版本号 + 下次刷新倒计时」，可直观确认定时器仍在工作
 11. **多端开箱即用**：
     - 支持 Android 原生、iOS 原生（通过 Expo Go 扫码即开），同时完美兼容 Web 网页端与移动端浏览器
 
@@ -165,7 +166,7 @@ npm run test:refresh                  # 上面三项一起跑
 
 npm run test:forecast                 # 30 天预报数据层（真实请求 Open-Meteo，110 项断言）
 npm run test:forecast:ui              # 30 天预报 UI 渲染（真实渲染组件，30 项断言）
-npm run test:app                      # App 整页冒烟（整页渲染 + 30 行落地，10 项断言）
+npm run test:app                      # App 整页冒烟（整页渲染 + 30 行落地 + 顶部版本号，16 项断言）
 npm run test:forecast:all             # 上面三项一起跑
 
 python test_widget_skin_verification.py                 # 校验 APK + 源码（需先构建）
@@ -173,12 +174,12 @@ python test_widget_skin_verification.py --skip-apk      # 只校验源码与资�
 python test_widget_skin_verification.py --apk <apk路径> # 指定 APK
 ```
 
-- `npm test` 断言 App 内定时器、Kotlin 闹钟、Manifest 权限、三套 `info.xml` 的刷新周期全部统一为 30 分钟，且不存在 20 分钟的旧实现；第 9 节专门盯「关屏与后台刷新可靠性」——重复兜底闹钟、精确/兜底双通道、Receiver 先排钟后抓数据、亮屏与开机广播、Android 13+ 动态注册导出性、同步时间戳落盘、原生缓存回传接口、跨夜列表检测，以及 App 侧的补水接线。
-- `npm run test:policy` 是 `src/services/refreshPolicy.js` 的单元测试，离线运行：覆盖时间戳为 0/null/NaN/负数/未来值、29:59 与 30:00 的时间边界、整夜 9 小时场景、系统时间被改到过去，以及原生缓存 12 种脏数据输入，最后确认「合并缓存后仍是 30 天预报、不被降级成 7 天」；另有一组断言专盯跨夜：逐日列表首日是昨天/去年同月同日/跨年夜时必须判定为「不覆盖今天」并强制联网重拉。
+- `npm test` 断言 App 内定时器、Kotlin 闹钟、Manifest 权限、三套 `info.xml` 的刷新周期全部统一为 30 分钟，且不存在 20 分钟的旧实现；第 9 节专门盯「关屏与后台刷新可靠性」——重复兜底闹钟、精确/兜底双通道、Receiver 先排钟后抓数据、亮屏与开机广播、Android 13+ 动态注册导出性、同步时间戳落盘、原生缓存回传接口、跨夜列表检测，以及 App 侧的补水接线；第 10 节盯「前台看门狗」——计时必须挂在绝对时间戳上（`Date.now() - lastRefreshTimestampRef.current`）、刷新函数经 `handleRefreshRef` 中转使定时器依赖数组保持 `[]`、轮询周期为 `AUTO_REFRESH_WATCHDOG_MS`，以及版本号从原生 `PackageInfo` 读取并渲染到顶部。
+- `npm run test:policy` 是 `src/services/refreshPolicy.js` 的单元测试，离线运行：覆盖时间戳为 0/null/NaN/负数/未来值、29:59 与 30:00 的时间边界、整夜 9 小时场景、系统时间被改到过去，以及原生缓存 12 种脏数据输入，最后确认「合并缓存后仍是 30 天预报、不被降级成 7 天」；另有一组断言专盯跨夜：逐日列表首日是昨天/去年同月同日/跨年夜时必须判定为「不覆盖今天」并强制联网重拉；还有一组专盯看门狗——周期范围、刷新中不重复触发、**多次 tick 之间不累积计时**（这正是 v1.2.6 修的 bug）、六种倒计时文案，以及版本号兜底常量必须与 `package.json` 一致。
 - `npm run test:overnight` 用一条「23:00 最后完整刷新 → 整夜 16 次原生后台刷新 → 07:55 亮屏补刷 → 08:00 用户睁眼」的真实时间线，把回前台的三步（读原生缓存 → 与完整快照合并上屏 → 判断是否需要联网重拉）依次跑成真实函数调用，并核对原生侧的三个必要产物（重复兜底闹钟、同步时间戳、缓存回读接口）。这一条正是用户反馈「睡一觉起来还是昨天的数据」的复现与回归。
 - `npm run test:forecast` 真实请求 Open-Meteo，对南昌/北京/漠河/三亚四地核对：30 条逐日数据、16 天精准段 + 14 天趋势段、日期逐日连续无重复、温度/降水概率/紫外线/日出日落全部有效，并把前 16 天与官方 forecast、后 14 天与官方 seasonal 逐日数值交叉比对，防止合并错位。
 - `npm run test:forecast:ui` 用 `react-dom/server` 真实渲染 `DailyForecastCard` 与 `DailyDetailModal`（RN 模块走 `scripts/stubs/` 桩），断言 30 行日期全部出现在 DOM、15 天数据渲染 15 行、30 天逐天切换都能正确展示。
-- `npm run test:app` 把整个 `App.js` 渲染一遍，确认 30 天改动没有破坏整页渲染链路、加载态不出现空预报区、30 天卡片能落地 30 行。
+- `npm run test:app` 把整个 `App.js` 渲染一遍，确认 30 天改动没有破坏整页渲染链路、加载态不出现空预报区、30 天卡片能落地 30 行；并单独渲染 `HeaderBar` 断言「版本号 + 下次刷新倒计时」真的出现在 DOM 里，版本号缺失时显示 `v—` 而不是 `undefined`。
 - `test_widget_skin_verification.py` 断言换肤资源、换肤广播、AQI 六档一致性、更新时间格式化幂等、未使用权限已移除、小部件选择器预览图等；在源码上即可运行，便于 CI 前置拦截。
 
 ---
@@ -190,8 +191,8 @@ no-ad-weather/
 ├── App.js                         # 应用主入口，负责整体状态流、下拉刷新与页面编排
 ├── app.json                       # Expo 配置文件
 ├── package.json                   # 项目依赖与运行脚本
-├── scripts/verify_refresh.js      # 30 分钟刷新一致性断言脚本（68 项）
-├── scripts/test_refresh_policy.mjs # 刷新策略单测：前台恢复 / 跨夜判定 / 缓存解析与合并（113 项，离线）
+├── scripts/verify_refresh.js      # 30 分钟刷新一致性断言脚本（92 项）
+├── scripts/test_refresh_policy.mjs # 刷新策略单测：前台恢复 / 跨夜判定 / 缓存解析与合并 / 看门狗（138 项，离线）
 ├── scripts/test_overnight_refresh.mjs # 关屏过夜端到端时间线：整夜刷新 → 回前台补水 → 跨夜重拉（33 项，离线）
 ├── scripts/test_forecast_days.mjs # 30 天预报数据层功能测试（真实请求）
 ├── scripts/test_forecast_ui.mjs   # 30 天预报 UI 渲染功能测试（react-dom/server）
@@ -210,11 +211,12 @@ no-ad-weather/
 └── src/
     ├── services/
     │   ├── weatherService.js      # Open-Meteo 气象、AQI、地名编码接口与生活指数算法
-    │   ├── refreshPolicy.js       # 刷新判定 / 缓存解析与合并（纯函数，可单测）
+    │   ├── refreshPolicy.js       # 刷新判定 / 看门狗节拍 / 缓存解析与合并（纯函数，可单测）
+    │   ├── appInfo.js             # 版本号读取（原生 PackageInfo 优先，打包期常量兜底）
     │   └── locationService.js     # 定位与 IP 兜底
     └── components/
         ├── WeatherBackground.js   # 拟真天空渐变与雨滴/飘雪/星光粒子特效
-        ├── HeaderBar.js           # 顶部城市状态、定位切换与无广告徽章
+        ├── HeaderBar.js           # 顶部城市状态、定位切换、版本号与下次刷新倒计时
         ├── CurrentWeatherCard.js  # 核心大字温度、天气状况、短时降水出行横幅
         ├── HourlyForecastCard.js  # 24小时逐小时预报与降雨概率
         ├── DailyForecastCard.js   # 30天预报（16天精准+14天趋势）与高低温可视化色带

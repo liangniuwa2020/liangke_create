@@ -66,6 +66,41 @@ async function main() {
   check('第 30 天数据可见', cardHtml.includes(last.monthDay) && cardHtml.includes(`${last.maxTemp}°`),
     `${last.monthDay} ${last.maxTemp}°/${last.minTemp}°`);
 
+  console.log('\n[5] 顶部信息栏显示版本号与下次刷新提示');
+  const { default: HeaderBar } = await import('../src/components/HeaderBar.js');
+  const headerHtml = renderToStaticMarkup(
+    React.createElement(HeaderBar, {
+      city: { name: '南昌市', city: '南昌', admin1: '江西省', isGps: true },
+      updateTime: '14:30',
+      versionLabel: 'v1.2.6',
+      nextRefreshHint: '下次刷新 12 分钟后',
+      onOpenCityModal: () => {},
+      onRefresh: () => {},
+      isRefreshing: false,
+      onOpenSkinModal: () => {},
+      onOpenWidgetModal: () => {},
+    })
+  );
+  check('顶部渲染版本号', headerHtml.includes('v1.2.6'));
+  check('顶部渲染下次刷新提示', headerHtml.includes('下次刷新 12 分钟后'));
+  check('顶部仍显示更新时间', headerHtml.includes('14:30 更新'), headerHtml.includes('14:30 更新') ? '' : '未找到');
+  check('未刷新时不显示多余文案', !headerHtml.includes('同步中...'));
+
+  // 版本号缺失时用占位符，而不是显示 undefined / 空
+  const headerNoVersion = renderToStaticMarkup(
+    React.createElement(HeaderBar, {
+      city: { name: '南昌市', city: '南昌', admin1: '江西省', isGps: true },
+      updateTime: '14:30',
+      onOpenCityModal: () => {},
+      onRefresh: () => {},
+      isRefreshing: false,
+      onOpenSkinModal: () => {},
+      onOpenWidgetModal: () => {},
+    })
+  );
+  check('版本号缺失时显示占位符 v—', headerNoVersion.includes('v—'));
+  check('提示缺失时不渲染空提示节点', !headerNoVersion.includes('下次刷新'));
+
   report();
 }
 

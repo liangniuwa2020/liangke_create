@@ -9,8 +9,41 @@
 /** 前台恢复时，缓存超过这个倍数就算「明显过期」，界面上要提示用户 */
 export const STALE_CACHE_FACTOR = 1;
 
+/**
+ * 看门狗轮询间隔：1 分钟。
+ *
+ * 为什么不再直接 `setInterval(handleRefresh, 30 分钟)`：
+ * 那个写法把「计时」绑在定时器对象上，只要 handleRefresh 的 useCallback 依赖
+ * （autoDetectLocation / loadWeather / setRefreshing）身份变化一次，React 就会
+ * 执行 cleanup → clearInterval → 重新 setTimeout，30 分钟的计时从头开始。
+ * 实际表现就是用户反馈的「不点刷新就永远不刷新，数据一直停在下午 16 点」。
+ *
+ * 看门狗的计时基准是 lastRefreshTimestampRef.current 这个绝对时间戳，
+ * 定时器被重建多少次都不影响「距离上次成功刷新已经过了多久」。
+ */
+export const AUTO_REFRESH_WATCHDOG_MS = 60 * 1000;
+
 function isValidTimestamp(value) {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+/**
+ * 看门狗每次 tick 是否该真正发起刷新。
+ *
+ * 与 shouldRefreshOnForeground 的区别：那个是「回到前台」的一次性判断，
+ * 这个是「前台常驻期间每分钟问一次」的重复判断，额外要避开正在进行的刷新。
+ *
+ * @param {object} options
+ * @param {number} options.lastRefreshAt 上次成功刷新（或读到的缓存同步时间）的毫秒时间戳
+ * @param {number} [options.now] 当前毫秒时间戳
+ * @param {number} options.intervalMs 刷新周期（30 分钟）
+ * @param {boolean} [options.isRefreshing] 当前是否已有一次刷新在飞
+ * @returns {boolean} true 表示这一次 tick 应该发起刷新
+ */
+export function shouldRunWatchdogTick({ lastRefreshAt, now = Date.now(), intervalMs, isRefreshing }) {
+  // 已有刷新在飞：跳过这一拍，等它落地后时间戳自然会更新
+  if (isRefreshing) return false;
+  return shouldRefreshOnForeground({ lastRefreshAt, now, intervalMs });
 }
 
 /**
@@ -71,6 +104,34 @@ export function isCacheStale(lastSyncAt, intervalMs, now = Date.now()) {
   const minutes = syncAgeMinutes(lastSyncAt, now);
   if (minutes < 0) return true;
   return minutes * 60 * 1000 >= intervalMs * STALE_CACHE_FACTOR;
+}
+
+/**
+ * 生成「距下次自动刷新还有多久」的界面提示文案。
+ *
+ * 用户是靠这个判断「定时器到底还在不在跑」的：如果这里一直显示「即将刷新」却永远
+ * 不刷新，说明看门狗又失效了。所以它必须由 lastRefreshAt 这个绝对时间戳算出来，
+ * 而不是由定时器自己上报。
+ *
+ * @param {number} lastRefreshAt 上次成功刷新的毫秒时间戳
+ * @param {number} intervalMs 刷新周期
+ * @param {number} [now] 当前毫秒时间戳
+ * @returns {string} 形如 "下次刷新 12 分钟后" / "即将自动刷新" / "等待首次同步"
+ */
+export function formatNextRefreshHint(lastRefreshAt, intervalMs, now = Date.now()) {
+  if (!isValidTimestamp(lastRefreshAt) || !isValidTimestamp(now)) return '等待首次同步';
+  if (!Number.isFinite(intervalMs) || intervalMs <= 0) return '等待首次同步';
+
+  const elapsed = now - lastRefreshAt;
+  // 系统时间被改到过去：无法预测，直接告诉用户马上会重新同步
+  if (elapsed < 0) return '即将自动刷新';
+
+  const remainMs = intervalMs - elapsed;
+  if (remainMs <= 0) return '即将自动刷新';
+
+  const remainMinutes = Math.ceil(remainMs / 60000);
+  if (remainMinutes <= 1) return '下次刷新不到 1 分钟';
+  return `下次刷新 ${remainMinutes} 分钟后`;
 }
 
 /**

@@ -84,34 +84,77 @@ assert(
   'AUTO_REFRESH_INTERVAL_MINUTES 由毫秒常量派生（不重复硬编码）'
 );
 
-// 定时器必须使用常量，且依赖数组里不能出现 currentCity（历史 bug 根因）
-const intervalBlockMatch = appJs.match(/const timer = setInterval\([\s\S]*?\},\s*([A-Za-z_$][\w$]*)\);/);
-assert(Boolean(intervalBlockMatch), '存在 setInterval 自动刷新定时器');
+// 定时器必须使用看门狗常量，且不能直接把刷新周期当 setInterval 周期
+//
+// 历史 bug（v1.2.6 修复）：旧实现是 setInterval(handleRefresh, 30 分钟)。计时挂在
+// 「定时器对象」上，handleRefresh 身份一变（依赖 autoDetectLocation / loadWeather /
+// setRefreshing）React 就 cleanup 重建，30 分钟计时清零，用户表现就是「不点刷新
+// 永远不刷新」。现在改成 60 秒看门狗轮询 + 绝对时间戳判定。
+const intervalBlockMatch = appJs.match(
+  /const timer = setInterval\(([A-Za-z_$][\w$]*),\s*([A-Za-z_$][\w$]*)\);/
+);
+assert(Boolean(intervalBlockMatch), '存在 setInterval 自动刷新看门狗定时器');
 if (intervalBlockMatch) {
   assert(
-    intervalBlockMatch[1] === 'AUTO_REFRESH_INTERVAL_MS',
-    'setInterval 使用 AUTO_REFRESH_INTERVAL_MS 而非硬编码',
-    `实际：${intervalBlockMatch[1]}`
+    intervalBlockMatch[2] === 'AUTO_REFRESH_WATCHDOG_MS',
+    'setInterval 周期使用 AUTO_REFRESH_WATCHDOG_MS（细粒度轮询，不是 30 分钟）',
+    `实际：${intervalBlockMatch[2]}`
+  );
+  assert(
+    intervalBlockMatch[2] !== 'AUTO_REFRESH_INTERVAL_MS',
+    'setInterval 不再直接把 30 分钟当轮询周期（否则计时会被重建清零）',
+    `实际：${intervalBlockMatch[2]}`
   );
 }
 
+// 看门狗周期必须是比刷新周期更细的粒度，否则失去「计时不受重建影响」的意义
+const policySrc = read('src/services/refreshPolicy.js');
+const watchdogMatch = policySrc.match(/export const AUTO_REFRESH_WATCHDOG_MS\s*=\s*([^;]+);/);
+assert(Boolean(watchdogMatch), 'refreshPolicy 导出 AUTO_REFRESH_WATCHDOG_MS');
+if (watchdogMatch) {
+  const watchdogMs = Function(`"use strict";return (${watchdogMatch[1]});`)();
+  assert(
+    Number.isFinite(watchdogMs) && watchdogMs > 0 && watchdogMs < EXPECTED_MS,
+    '看门狗周期小于 30 分钟刷新周期',
+    `watchdog=${watchdogMs}ms interval=${EXPECTED_MS}ms`
+  );
+  assert(
+    watchdogMs <= 5 * 60 * 1000,
+    '看门狗周期不超过 5 分钟（保证唤醒后能及时判定到期）',
+    `watchdog=${watchdogMs}ms`
+  );
+}
+assert(
+  /export function shouldRunWatchdogTick/.test(policySrc),
+  'refreshPolicy 导出 shouldRunWatchdogTick（每拍是否该刷新的纯函数）'
+);
+
+// 自动刷新 effect 必须是空依赖 + 通过 ref 调 handleRefresh，才能永不重建
 const autoRefreshEffectMatch = appJs.match(
-  /\/\/[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*useEffect\(\(\) => \{\s*console\.log\(`\[AutoRefresh\][\s\S]*?\}, (\[[^\]]*\])\);/
+  /useEffect\(\(\) => \{\s*console\.log\(`\[AutoRefresh\][\s\S]*?\}, (\[[^\]]*\])\);/
 );
 assert(Boolean(autoRefreshEffectMatch), '定位到自动刷新 useEffect 的依赖数组');
 if (autoRefreshEffectMatch) {
-  const deps = autoRefreshEffectMatch[1];
+  const deps = autoRefreshEffectMatch[1].replace(/\s+/g, '');
   assert(
-    !/currentCity/.test(deps),
-    '自动刷新 useEffect 依赖中不含 currentCity（防止定时器被反复重建）',
-    `依赖：${deps}`
-  );
-  assert(
-    /handleRefresh/.test(deps),
-    '自动刷新 useEffect 依赖 handleRefresh',
-    `依赖：${deps}`
+    deps === '[]',
+    '自动刷新 useEffect 依赖为空数组（定时器永不因身份变化重建）',
+    `依赖：${autoRefreshEffectMatch[1]}`
   );
 }
+assert(
+  /handleRefreshRef\.current\s*=\s*handleRefresh/.test(appJs),
+  'App.js 用 handleRefreshRef 镜像刷新函数，供定时器闭包安全调用'
+);
+assert(
+  /shouldRunWatchdogTick\(/.test(appJs),
+  'App.js 的看门狗每拍用 shouldRunWatchdogTick 判定是否到期'
+);
+assert(
+  /lastRefreshTimestampRef\.current/.test(appJs) &&
+    /Date\.now\(\)\s*-\s*lastRefreshTimestampRef\.current/.test(appJs),
+  '看门狗以绝对时间戳为计时基准（不依赖定时器自身寿命）'
+);
 
 // AppState 前台恢复阈值也必须用同一常量
 assert(
@@ -253,9 +296,27 @@ const pkg = JSON.parse(read('package.json'));
 const appJson = JSON.parse(read('app.json'));
 const version = pkg.version;
 
+// 版本号不能再在组件里写死：写死就会出现「装了 1.2.6，界面还显示 1.2.5」。
+// 组件必须从 appInfo 读（原生 PackageInfo 优先，打包期常量兜底）。
 assert(
-  new RegExp(`v${version.replace(/\./g, '\\.')}`).test(aboutModal),
-  `AboutCleanModal 版本号与 package.json 一致 (v${version})`
+  /from '\.\.\/services\/appInfo'/.test(aboutModal),
+  'AboutCleanModal 从 appInfo 读取版本号（而非写死字符串）'
+);
+assert(
+  /versionLabel/.test(aboutModal) && /formatVersionLabel\(FALLBACK_VERSION_NAME\)/.test(aboutModal),
+  'AboutCleanModal 优先使用传入的 versionLabel，缺失时回退到打包期常量'
+);
+assert(
+  !/版本信息：v\d+\.\d+\.\d+/.test(aboutModal),
+  'AboutCleanModal 不再出现硬编码的「版本信息：vX.Y.Z」'
+);
+
+const appInfoSrc = read('src/services/appInfo.js');
+const fallbackMatch = appInfoSrc.match(/FALLBACK_VERSION_NAME\s*=\s*'([^']+)'/);
+assert(
+  fallbackMatch && fallbackMatch[1] === version,
+  'appInfo.js 兜底版本号与 package.json 一致',
+  `appInfo=${fallbackMatch ? fallbackMatch[1] : 'N/A'} package.json=${version}`
 );
 assert(
   appJson.expo && appJson.expo.version === version,
@@ -437,6 +498,75 @@ assert(
 assert(
   /weatherDataRef\.current\s*=\s*weatherData/.test(appJs),
   'App.js 用 weatherDataRef 镜像天气数据，避免闭包读到旧 state'
+);
+
+// ---------------------------------------------------------------
+// 10. 看门狗自动刷新与版本号展示
+// ---------------------------------------------------------------
+section('10. 看门狗自动刷新与版本号展示');
+
+// 10.1 计时必须挂在绝对时间戳上，而不是「定时器自己跑满一轮」。
+// 历史 bug：setInterval(handleRefresh, 30min) 的依赖里有 handleRefresh，
+// 任一 useCallback 身份变化都会 cleanup 重建定时器，30 分钟计时反复清零，
+// 用户实测表现为「不手动点刷新就永远停在 16 点」。
+assert(
+  /Date\.now\(\)\s*-\s*lastRefreshTimestampRef\.current/.test(appJs),
+  'App.js 用「当前时间 - 上次成功刷新时间」判断是否到期（而非依赖定时器累积）'
+);
+assert(
+  /handleRefreshRef\.current\s*=\s*handleRefresh/.test(appJs),
+  'App.js 用 handleRefreshRef 镜像刷新函数，定时器依赖可保持为空数组'
+);
+assert(
+  /const timer = setInterval\(tick,\s*AUTO_REFRESH_WATCHDOG_MS\)/.test(appJs),
+  'App.js 看门狗按 AUTO_REFRESH_WATCHDOG_MS 短周期轮询'
+);
+assert(
+  /shouldRunWatchdogTick\(/.test(appJs) && /export function shouldRunWatchdogTick/.test(policy),
+  '看门狗每拍调用 shouldRunWatchdogTick 纯函数判定'
+);
+assert(
+  /formatNextRefreshHint\(/.test(appJs) && /export function formatNextRefreshHint/.test(policy),
+  '看门狗每拍刷新「下次刷新还有多久」提示'
+);
+assert(
+  /tick\(\);\s*\n\s*const timer = setInterval/.test(appJs),
+  '看门狗启动时先自检一次（不必等满第一个轮询周期）'
+);
+
+// 10.2 版本号：必须来自原生 PackageInfo，绝不写死在组件里。
+assert(
+  /fun getAppVersion\(\s*promise: Promise\s*\)/.test(widgetModule),
+  'WeatherWidgetModule 暴露 getAppVersion() 供 JS 读真实 versionName'
+);
+assert(
+  /getPackageInfo\(/.test(widgetModule) && /longVersionCode/.test(widgetModule),
+  'getAppVersion 读取 PackageInfo（versionCode 走 longVersionCode）'
+);
+assert(
+  /export async function getAppVersion/.test(appInfoSrc) && /formatVersionLabel/.test(appInfoSrc),
+  'appInfo.js 提供 getAppVersion 与 formatVersionLabel'
+);
+assert(
+  /getAppVersion\(\s*\)/.test(appJs) && /setVersionLabel\(/.test(appJs),
+  'App.js 启动时读版本号并写入 state'
+);
+assert(
+  /versionLabel=\{versionLabel\}/.test(appJs),
+  'App.js 把版本号传给 HeaderBar（界面直接可见）'
+);
+assert(
+  /nextRefreshHint=\{nextRefreshHint\}/.test(appJs),
+  'App.js 把下次刷新提示传给 HeaderBar'
+);
+const headerBar = read('src/components/HeaderBar.js');
+assert(
+  /versionLabel/.test(headerBar) && /versionTag/.test(headerBar),
+  'HeaderBar 渲染版本号标签'
+);
+assert(
+  /nextRefreshHint/.test(headerBar) && /refreshHint/.test(headerBar),
+  'HeaderBar 渲染下次刷新提示'
 );
 
 // ---------------------------------------------------------------

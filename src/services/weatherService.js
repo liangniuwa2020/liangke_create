@@ -325,6 +325,26 @@ export function estimateRainProbFromSum(sum, code) {
   return Math.max(prob, codeFloor);
 }
 
+/**
+ * 统一得出某一天的降水概率。
+ *
+ * 为什么不能直接信官方字段：实测北京 forecast 端点返回过「小阵雪 + 降水概率 0%」，
+ * 界面上就是「小阵雪 0%」，看起来像 bug。这里把官方概率与「天气代码兜底下限」
+ * 取最大值 —— 官方给的更保守时以官方为准，官方明显自相矛盾时用下限纠正。
+ *
+ * @param {number|null} official 官方 precipitation_probability_max（可能为 null）
+ * @param {number} sum 降水量 mm（用于反推）
+ * @param {number} code WMO 天气代码
+ * @returns {number} 0-100 的整数
+ */
+export function resolveRainProb(official, sum, code) {
+  const estimated = estimateRainProbFromSum(sum, code);
+  const value = Number(official);
+  if (!Number.isFinite(value)) return estimated;
+  const clamped = Math.max(0, Math.min(100, Math.round(value)));
+  return Math.max(clamped, estimated);
+}
+
 // seasonal 端点不提供紫外线指数，按「正午太阳高度角 + 云量折减」估算。
 // 不能只看天气代码：漠河 12 月的晴天 UV 也只有 1 左右，三亚同一天能到 7。
 // 正午太阳高度角正弦 = sin(lat)sin(dec) + cos(lat)cos(dec)，dec 为太阳赤纬。
@@ -436,9 +456,13 @@ export async function fetchCompleteWeather(latitude, longitude) {
         maxTemp: Math.round(daily.temperature_2m_max[i]),
         minTemp: Math.round(daily.temperature_2m_min[i]),
         weather,
-        rainProb: daily.precipitation_probability_max && daily.precipitation_probability_max[i] != null
-          ? Math.round(daily.precipitation_probability_max[i])
-          : estimateRainProbFromSum(daily.precipitation_sum ? daily.precipitation_sum[i] : 0, code),
+        // 即使官方给了降水概率，也要和天气代码兜底取最大值：
+        // 实测北京 11-23 官方返回「小阵雪 + 降水概率 0%」，读起来自相矛盾。
+        rainProb: resolveRainProb(
+          daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : null,
+          daily.precipitation_sum ? daily.precipitation_sum[i] : 0,
+          code
+        ),
         uvMax: daily.uv_index_max && daily.uv_index_max[i] != null
           ? Math.round(daily.uv_index_max[i])
           : estimateUvFromLatitudeAndDate(latitude, dateStr, code),

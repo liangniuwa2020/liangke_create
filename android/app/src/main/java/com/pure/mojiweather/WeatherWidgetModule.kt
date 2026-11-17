@@ -120,6 +120,46 @@ class WeatherWidgetModule(private val reactContext: ReactApplicationContext) : R
     }
 
     /**
+     * 供 JS 读取同步健康度：最近一次成功时间、连续失败次数、最近一次失败时间、缓存城市名。
+     *
+     * 为什么要单独暴露：用户「睡一觉起来看到昨天的数据」时，界面必须能说清是
+     * 「一直没刷新成功」还是「刷新了但没拿到新数据」。只有把失败计数和失败时间
+     * 端上来，才能判断是网络问题、权限问题还是 ROM 把后台任务杀了。
+     */
+    @ReactMethod
+    fun readSyncStatus(promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences(WeatherWidgetSyncHelper.PREFS_NAME, Context.MODE_PRIVATE)
+            val result = Arguments.createMap().apply {
+                putDouble("lastSyncAt", prefs.getLong(WeatherWidgetSyncHelper.KEY_LAST_SYNC_AT, 0L).toDouble())
+                putInt("failCount", prefs.getInt(WeatherWidgetSyncHelper.KEY_SYNC_FAIL_COUNT, 0))
+                putDouble("lastFailAt", prefs.getLong(WeatherWidgetSyncHelper.KEY_LAST_FAIL_AT, 0L).toDouble())
+                putString("city", prefs.getString(WeatherWidgetSyncHelper.KEY_CITY_NAME, null))
+            }
+            promise.resolve(result)
+        } catch (e: Exception) {
+            promise.reject("E_SYNC_STATUS", e)
+        }
+    }
+
+    /**
+     * 供 JS 手动把 WorkManager 周期任务重新登记一遍。
+     * 部分 ROM 清理后台后会把 JobScheduler 里的任务一并删掉，
+     * 用户在设置里把 App 加入白名单后点一下即可立即恢复。
+     */
+    @ReactMethod
+    fun ensureBackgroundScheduler(promise: Promise) {
+        try {
+            WeatherRefreshScheduler.enqueuePeriodic(reactContext)
+            WeatherRefreshScheduler.enqueueImmediate(reactContext)
+            WeatherWidgetSyncHelper.scheduleAutoRefresh(reactContext)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("E_SCHEDULER", e)
+        }
+    }
+
+    /**
      * 供 JS 直接触发一次原生后台抓取（走 WakeLock + 独立线程），
      * 用于 JS 侧网络失败后的兜底重试。
      */

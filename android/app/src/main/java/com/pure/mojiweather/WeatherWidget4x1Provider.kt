@@ -21,6 +21,9 @@ class WeatherWidget4x1Provider : AppWidgetProvider() {
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         WeatherWidgetSyncHelper.scheduleAutoRefresh(context)
+        // 同时复查 WorkManager 周期任务是否在册：ROM 清理后台任务时会静默删掉它，
+        // 借 onEnabled/onUpdate 这两个天然入口把周期任务补回来，进程被杀也能自愈。
+        WeatherRefreshScheduler.enqueuePeriodic(context)
         WeatherWidgetSyncHelper.fetchWeatherInBackground(context, showFeedback = false)
     }
 
@@ -29,7 +32,10 @@ class WeatherWidget4x1Provider : AppWidgetProvider() {
         for (appWidgetId in appWidgetIds) {
             updateWidget(context, appWidgetManager, appWidgetId)
         }
-        // 当桌面系统周期调度 onUpdate 时，顺便异步拉取一次最新天气
+        // 当桌面系统周期调度 onUpdate 时，顺便异步拉取一次最新天气，
+        // 同时复查 WorkManager 周期任务是否在册：ROM 清理后台任务时会静默删掉它，
+        // 借 onEnabled/onUpdate 这两个天然入口把周期任务补回来，进程被杀也能自愈。
+        WeatherRefreshScheduler.enqueuePeriodic(context)
         WeatherWidgetSyncHelper.fetchWeatherInBackground(context, showFeedback = false)
     }
 

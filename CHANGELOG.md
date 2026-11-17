@@ -1,5 +1,54 @@
 # 无广告天气 (No Ad Weather) - 更新日志
 
+## [v1.2.8] - 2026-11-17
+
+用户实测反馈：「睡了一觉起来，发现小部件还是不会自动刷新，时间和日期还是昨天晚上的」。
+
+前三轮修复（v1.2.5 双闹钟、v1.2.6 JS 看门狗、v1.2.7 按钮布局）解决了「App 内不刷新」和「按钮看不见」，但**小部件在真机过夜后仍然停在昨晚**。本轮定位到的是后台通道本身在国产 ROM 上的可靠性问题，并补上第四条通道与可见的健康度提示。
+
+### 🔧 后台刷新新增 WorkManager 通道（核心修复）
+
+**为什么前三条通道都不够**：
+
+| 通道 | 失效方式 |
+| --- | --- |
+| `setExactAndAllowWhileIdle` 一次性精确闹钟 | 被「自启动管理 / 后台运行限制 / 省电策略」整条拦掉，一次都不投递 |
+| `setInexactRepeating` 兜底闹钟 | Doze 深度休眠中可能被推迟数小时，跨夜 8 小时只触发一两次 |
+| `BroadcastReceiver.goAsync()` 内直接抓取 | 只有约 10 秒执行预算，弱网请求被系统砍断，等于没刷新 |
+| **WorkManager 周期任务（新增）** | 由系统 JobScheduler 托管，进程被杀/重启后任务仍在，遵守 Doze 维护窗口 |
+
+- 新增 `WeatherRefreshScheduler`：`PeriodicWorkRequestBuilder<WeatherRefreshWorker>(30, MINUTES)` + `NetworkType.CONNECTED` 约束，用 **`ExistingPeriodicWorkPolicy.KEEP`** 入队。用 `UPDATE` 会让周期从当前时刻重新计时，等于永远等不到下一次；`KEEP` 保证重复调用不重置周期。
+- 新增 `WeatherRefreshWorker`：`doWork()` 复用 `performSync()`，成功返回 `Result.success()`，失败返回 `Result.retry()` 交给 WorkManager 指数退避。
+- `WeatherWidgetSyncHelper` 重构出 `fun performSync(appContext, showFeedback): Boolean`：把原来写在 `Thread{}` 里的抓取逻辑抽成有明确成败的同步方法（Worker 需要确定结果），`fetchWeatherInBackground` 退化为薄壳；WakeLock 从 30 秒延长到 60 秒。
+- 三处登记入口，保证 ROM 清掉任务后能自愈：`MainApplication.onCreate`、`WeatherWidgetAutoRefreshReceiver`（命中广播时）、三个小部件 Provider 的 `onEnabled` / `onUpdate`。
+- `WeatherWidgetAutoRefreshReceiver` **不再使用 `goAsync()` + 直接抓取**，改为投递一次性 WorkManager 任务；同时保留「先排下一次闹钟，再投递任务」的顺序（这一条是 v1.2.5 修过的历史 bug，不能回退）。
+- `build.gradle` 新增 `androidx.work:work-runtime-ktx:2.10.5`。
+
+### 👁 数据陈旧不再静默
+
+新增 `src/services/syncHealth.js` + 原生 `readSyncStatus` / `ensureBackgroundScheduler` 两个方法：
+
+- 原生侧记录 `KEY_SYNC_FAIL_COUNT` / `KEY_LAST_FAIL_AT`，成功一次即清零（否则退避永远处于惩罚状态）。
+- 顶部信息栏下方新增告警条，只在需要时出现：
+  - 连续失败 ≥ 3 次 → 「后台同步连续失败 N 次，请检查网络或允许本应用后台运行」
+  - 超过 90 分钟未成功同步 → 「数据已 N 小时未更新，点刷新或检查后台权限」
+  - 正常/首次启动 → 不显示，不打扰用户
+- 告警条自带「立即恢复」按钮：重新登记 WorkManager 周期任务 + AlarmManager，并立刻刷新。用户把 App 加进电池优化白名单后点一下即可恢复，不用等开机或重装。
+- 看门狗每 60 秒读一次健康度（只读 SharedPreferences，不联网）。
+
+### 🧪 测试
+
+- `scripts/verify_refresh.js` 新增**第 12 节「WorkManager 兜底刷新链路」23 项**，总计 **136 项**：依赖声明、Worker 继承与成败语义、`performSync` 返回 Boolean、失败计数与清零、`KEEP` 入队、`CONNECTED` 约束、`REPLACE` 唯一任务、三处登记入口、Receiver 不再用 `goAsync`、JS/原生健康度接线。
+- 新增 `scripts/test_sync_health.mjs`（`npm run test:health`）**40 项**：原生方法缺失/抛错的降级、脏数据归一化、三档严重度（ok/pending/stale/failing）、89/91 分钟与 2/3 次失败的边界、`ensureBackgroundScheduler` 的容错。
+- `scripts/test_overnight_refresh.mjs` 与两处 Receiver 断言同步更新到 WorkManager 通道。
+- 全量回归：`tsc` 0 error、`eslint` 0 error 0 warning、`verify_refresh` 136 项、`test_refresh_policy` 138 项、`test_overnight_refresh` 33 项、`test_sync_health` 40 项。
+
+### 📦 版本
+
+`1.2.8` / `versionCode 17`。
+
+---
+
 ## [v1.2.7] - 2026-11-16
 
 本轮只做一件事：修复**桌面小部件的换肤 / 刷新按钮被布局挤到屏幕外**（上一版 v1.2.6 里这三颗按钮其实一直在，只是看不见也点不到）。

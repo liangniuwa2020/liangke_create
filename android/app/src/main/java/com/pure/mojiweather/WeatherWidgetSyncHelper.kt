@@ -33,6 +33,10 @@ object WeatherWidgetSyncHelper {
     const val KEY_WIDGET_SKIN = "widget_skin_type" // "dark" | "white" | "glass"
     /** 最近一次成功联网抓取的时间戳（毫秒）。JS 侧唤醒时会读取它判断要不要立刻补一次刷新。 */
     const val KEY_LAST_SYNC_AT = "widget_last_sync_at"
+    /** 连续失败次数：WorkManager 据此判断是否需要进入退避重试 */
+    const val KEY_SYNC_FAIL_COUNT = "widget_sync_fail_count"
+    /** 最近一次失败时间戳（毫秒），用于界面提示「数据已陈旧多久」 */
+    const val KEY_LAST_FAIL_AT = "widget_last_fail_at"
     const val ACTION_SWITCH_WIDGET_SKIN = "com.pure.mojiweather.ACTION_SWITCH_WIDGET_SKIN"
 
     const val ACTION_AUTO_REFRESH_30MIN = "com.pure.mojiweather.ACTION_AUTO_REFRESH_30MIN"
@@ -213,16 +217,42 @@ object WeatherWidgetSyncHelper {
             setWidgetsUpdatingState(context, "正在刷新...")
         }
 
-        // 获取短暂 WakeLock (最长 30 秒超时防泄漏)，防止系统休眠中断后台网络请求
+        // 获取短暂 WakeLock (最长 60 秒超时防泄漏)，防止系统休眠中断后台网络请求
         val appContext = context.applicationContext
         val powerManager = appContext.getSystemService(Context.POWER_SERVICE) as? PowerManager
         val wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "pure_moji:widget_refresh_lock")?.apply {
             setReferenceCounted(false)
-            acquire(30000L)
+            acquire(60000L)
         }
 
         Thread {
             try {
+                performSync(appContext, showFeedback)
+            } catch (e: Exception) {
+                Log.e(TAG, "fetchWeatherInBackground unexpected error", e)
+            } finally {
+                isRefreshing = false
+                try {
+                    if (wakeLock?.isHeld == true) {
+                        wakeLock.release()
+                    }
+                } catch (_: Exception) {}
+                onComplete?.invoke()
+            }
+        }.start()
+    }
+
+    /**
+     * 同步执行一次完整抓取（阻塞调用线程）。
+     *
+     * 抽出来的原因：WorkManager 的 Worker 在后台线程同步执行 `doWork()`，
+     * 它需要拿到「这次到底成功没有」的确定结果才能决定 Result.success / Result.retry（退避重试）。
+     * 原来的 `fetchWeatherInBackground` 是 fire-and-forget + 回调，无法表达成败。
+     *
+     * @return true 表示成功拿到并落盘了新的天气数据
+     */
+    fun performSync(appContext: Context, showFeedback: Boolean): Boolean {
+        return try {
                 val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 val lat = prefs.getFloat(KEY_LATITUDE, 28.6829f).toDouble()
                 val lon = prefs.getFloat(KEY_LONGITUDE, 115.8906f).toDouble()
@@ -349,46 +379,59 @@ object WeatherWidgetSyncHelper {
                     }
 
                     // 缓存 + 同步时间戳一起落盘：JS 在 App 回到前台时据此判断缓存是否新鲜
+                    // 成功一次就把连续失败计数清零，WorkManager 的退避才有意义
                     prefs.edit()
                         .putString(KEY_WEATHER_DATA, payload.toString())
                         .putLong(KEY_LAST_SYNC_AT, System.currentTimeMillis())
+                        .putInt(KEY_SYNC_FAIL_COUNT, 0)
                         .apply()
 
                     // 立即更新全部 4x3, 4x2, 4x1 小部件
-                    WeatherWidget4x3Provider.updateAllWidgets(context)
-                    WeatherWidget4x2Provider.updateAllWidgets(context)
-                    WeatherWidget4x1Provider.updateAllWidgets(context)
+                    WeatherWidget4x3Provider.updateAllWidgets(appContext)
+                    WeatherWidget4x2Provider.updateAllWidgets(appContext)
+                    WeatherWidget4x1Provider.updateAllWidgets(appContext)
 
                     if (showFeedback) {
                         Handler(Looper.getMainLooper()).post {
-                            Toast.makeText(context, "${savedCity}天气已更新 ($nowTimeStr)", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(appContext, "${savedCity}天气已更新 ($nowTimeStr)", Toast.LENGTH_SHORT).show()
                         }
                     }
                     Log.d(TAG, "Weather sync succeeded: $nowTimeStr, temp=$currentTemp")
                 } else {
                     throw Exception("Empty weather response from Open-Meteo")
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Weather sync failed", e)
-                // 恢复此前微件界面
-                WeatherWidget4x3Provider.updateAllWidgets(context)
-                WeatherWidget4x2Provider.updateAllWidgets(context)
-                WeatherWidget4x1Provider.updateAllWidgets(context)
-                if (showFeedback) {
-                    Handler(Looper.getMainLooper()).post {
-                        Toast.makeText(context, "天气更新失败，请检查网络连接", Toast.LENGTH_SHORT).show()
-                    }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Weather sync failed", e)
+            // 失败也要把「上次成功时间」保留，界面会据此显示数据已陈旧
+            recordFailure(appContext)
+            // 恢复此前微件界面
+            WeatherWidget4x3Provider.updateAllWidgets(appContext)
+            WeatherWidget4x2Provider.updateAllWidgets(appContext)
+            WeatherWidget4x1Provider.updateAllWidgets(appContext)
+            if (showFeedback) {
+                Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(appContext, "天气更新失败，请检查网络连接", Toast.LENGTH_SHORT).show()
                 }
-            } finally {
-                isRefreshing = false
-                try {
-                    if (wakeLock?.isHeld == true) {
-                        wakeLock.release()
-                    }
-                } catch (_: Exception) {}
-                onComplete?.invoke()
             }
-        }.start()
+            false
+        }
+    }
+
+    /**
+     * 记录一次失败：连续失败次数 + 最近失败时间。
+     * 用途：WorkManager 的退避重试需要知道「是不是网络持续不可用」，
+     * 界面也需要在长时间拿不到数据时提示用户而不是静默显示旧数据。
+     */
+    private fun recordFailure(context: Context) {
+        try {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val fails = prefs.getInt(KEY_SYNC_FAIL_COUNT, 0) + 1
+            prefs.edit()
+                .putInt(KEY_SYNC_FAIL_COUNT, fails)
+                .putLong(KEY_LAST_FAIL_AT, System.currentTimeMillis())
+                .apply()
+        } catch (_: Exception) {}
     }
 
     private fun setWidgetsUpdatingState(context: Context, statusText: String) {

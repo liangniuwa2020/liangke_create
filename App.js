@@ -33,6 +33,11 @@ import {
   saveSelectedSkin,
 } from './src/utils/themeContext';
 import { getAppVersion, formatVersionLabel } from './src/services/appInfo';
+import {
+  readSyncStatus,
+  ensureBackgroundScheduler,
+  describeSyncHealth,
+} from './src/services/syncHealth';
 import WeatherBackground from './src/components/WeatherBackground';
 import HeaderBar from './src/components/HeaderBar';
 import ClockWeatherWidget from './src/components/ClockWeatherWidget';
@@ -96,6 +101,8 @@ export default function App() {
   const [versionLabel, setVersionLabel] = useState('');
   // 距下次自动刷新的提示，由看门狗每拍更新，让用户能确认定时器真的在跑
   const [nextRefreshHint, setNextRefreshHint] = useState('');
+  // 后台同步健康度：数据陈旧 / 连续失败时给出可执行提示，而不是静默显示旧数据
+  const [syncHealth, setSyncHealth] = useState({ level: 'ok', text: '', ageMinutes: -1 });
 
   // 用 ref 镜像最新的城市与刷新状态，避免定时器因依赖变化被反复销毁重建
   const currentCityRef = useRef(currentCity);
@@ -424,6 +431,15 @@ export default function App() {
       );
     };
 
+    // 读原生侧的同步健康度（最近成功时间 / 连续失败次数）。
+    // 这一拍不联网、只读 SharedPreferences，开销可以忽略，所以每轮都做：
+    // 用户看到「数据已 12 小时未更新」时，才知道该去点刷新还是该去改后台权限。
+    const refreshSyncHealth = () => {
+      readSyncStatus()
+        .then((raw) => setSyncHealth(describeSyncHealth(raw)))
+        .catch(() => {});
+    };
+
     const tick = () => {
       const ageMs = Date.now() - lastRefreshTimestampRef.current;
       const due = shouldRunWatchdogTick({
@@ -435,6 +451,7 @@ export default function App() {
 
       // 无论是否到期都刷新一次倒计时文案：这行字就是用户判断「定时器还活着」的依据
       refreshHint();
+      refreshSyncHealth();
 
       if (!due) return;
 
@@ -548,6 +565,35 @@ export default function App() {
             onOpenSkinModal={() => setIsSkinModalVisible(true)}
             onOpenWidgetModal={() => setIsWidgetModalVisible(true)}
           />
+
+          {/* 后台同步健康度告警条
+              用户「睡一觉起来还是昨晚的数据」时，光看一个 HH:mm 分辨不出是
+              「一直没跑」「跑了但失败」还是「跑成功了但数据本身是旧的」。
+              这里把原生侧的连续失败次数 / 陈旧时长直接摊开，并给一个恢复动作。 */}
+          {syncHealth.level !== 'ok' && syncHealth.text ? (
+            <View style={styles.healthBar}>
+              <Ionicons
+                name={syncHealth.level === 'failing' ? 'alert-circle-outline' : 'time-outline'}
+                size={14}
+                color={syncHealth.level === 'failing' ? '#fca5a5' : '#fcd34d'}
+              />
+              <Text style={styles.healthText} numberOfLines={2}>
+                {syncHealth.text}
+              </Text>
+              <TouchableOpacity
+                style={styles.healthBtn}
+                onPress={async () => {
+                  // 重新登记 WorkManager 周期任务 + AlarmManager，并把最新状态读回来
+                  await ensureBackgroundScheduler();
+                  const raw = await readSyncStatus();
+                  setSyncHealth(describeSyncHealth(raw));
+                  handleRefresh();
+                }}
+              >
+                <Text style={styles.healthBtnText}>立即恢复</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           {/* 加载中状态 */}
           {isLoading && !weatherData ? (
@@ -811,5 +857,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.7)',
     letterSpacing: 0.5,
+  },
+  // 后台同步健康度告警条：只在数据陈旧 / 连续失败时出现，平时不占地方
+  healthBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  healthText: {
+    flex: 1,
+    fontSize: 11,
+    lineHeight: 15,
+    color: 'rgba(255, 255, 255, 0.88)',
+    marginLeft: 6,
+    marginRight: 8,
+  },
+  healthBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  healthBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#ffffff',
   },
 });

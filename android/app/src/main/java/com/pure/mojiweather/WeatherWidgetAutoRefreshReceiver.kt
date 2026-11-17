@@ -32,19 +32,13 @@ class WeatherWidgetAutoRefreshReceiver : BroadcastReceiver() {
             // 1) 先把下一次闹钟钉死，保证链路自愈，不依赖本次抓取是否成功
             WeatherWidgetSyncHelper.scheduleAutoRefresh(appContext)
 
-            // 2) 使用 goAsync() 延长广播接收器生命周期，
-            //    保证系统休眠或切后台时异步网络请求能完整执行完毕
-            val pendingResult = goAsync()
-            WeatherWidgetSyncHelper.fetchWeatherInBackground(appContext, showFeedback = false) {
-                try {
-                    // 抓取结束后再校准一次，把漂移拉回来
-                    WeatherWidgetSyncHelper.scheduleAutoRefresh(appContext)
-                } finally {
-                    try {
-                        pendingResult.finish()
-                    } catch (_: Exception) {}
-                }
-            }
+            // 2) 同时确保 WorkManager 周期任务在册（升级/重装后首次触发时补登记），
+            //    并投递一个一次性任务立刻抓取。
+            //    为什么不在这里直接开线程抓：广播接收器的异步回调只有约 10 秒执行预算，
+            //    弱网时网络请求会被系统直接砍断，数据等于没刷新。
+            //    WorkManager 的 Worker 有完整的执行窗口，不受这个限制。
+            WeatherRefreshScheduler.enqueuePeriodic(appContext)
+            WeatherRefreshScheduler.enqueueImmediate(appContext)
         }
     }
 }

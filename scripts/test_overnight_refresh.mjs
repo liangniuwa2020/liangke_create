@@ -297,9 +297,17 @@ function main() {
   check('原生缓存写入同步时间戳', /putLong\(KEY_LAST_SYNC_AT/.test(helper));
   check('原生提供 readCachedWeather 给 JS 读', /fun readCachedWeather\(/.test(helper));
   check('JS 侧桥接暴露 readCachedWeather', /fun readCachedWeather\(promise: Promise\)/.test(module));
+  // v1.2.8 起抓取交给 WorkManager：Receiver 里紧跟闹钟调度之后的是 enqueueImmediate，
+  // 不再是直接开线程的 fetchWeatherInBackground（广播回调只有约 10 秒预算，弱网会被砍断）。
+  const fetchDispatchIdx = (() => {
+    const a = receiver.indexOf('WeatherRefreshScheduler.enqueueImmediate');
+    const b = receiver.indexOf('fetchWeatherInBackground');
+    if (a !== -1 && b !== -1) return Math.min(a, b);
+    return a !== -1 ? a : b;
+  })();
   check(
-    'Receiver 先排下次闹钟再抓数据',
-    receiver.indexOf('scheduleAutoRefresh(appContext)') < receiver.indexOf('fetchWeatherInBackground') &&
+    'Receiver 先排下次闹钟再投递抓取任务',
+    receiver.indexOf('scheduleAutoRefresh(appContext)') < fetchDispatchIdx &&
       receiver.indexOf('scheduleAutoRefresh(appContext)') !== -1
   );
   check('Receiver 覆盖亮屏广播', /ACTION_SCREEN_ON/.test(receiver));

@@ -41,7 +41,8 @@
     - 4×3 综合天气时钟（一周预报）、4×2 逐时天气、4×1 精简时钟天气
     - 支持深黑 / 极简白卡 / 通透毛玻璃三套皮肤，点击小部件图标即时换肤
     - 每个小部件右上角都有 **换肤 + 立即刷新** 两颗按钮：宽度用固定 dp 且不参与 `layout_weight`，窄屏只截断文字、不会把按钮挤出屏幕（v1.2.7 修复）
-    - **关屏、后台、整夜待机后依然 30 分钟刷新一次**：原生侧用「一次性精确闹钟 + 系统级重复兜底闹钟 + 亮屏/开机广播」三重保障，进程被杀也能自愈；抓取结果连同同步时间戳写入本地，App 回到前台先补水再联网，所以睡醒打开就是当天的最新数据
+    - **关屏、后台、整夜待机后依然 30 分钟刷新一次**：原生侧四重保障 —— ①一次性精确闹钟；②系统级重复兜底闹钟；③亮屏/开机/解锁广播；④**WorkManager 周期任务**（由系统 JobScheduler 托管，进程被杀或重启后仍会被拉起，遵守 Doze 维护窗口，是穿透国产 ROM「自启动管理 / 省电策略」的关键通道）。抓取结果连同同步时间戳写入本地，App 回到前台先补水再联网，所以睡醒打开就是当天的最新数据
+- **数据陈旧不再静默**：连续失败 ≥3 次或超过 90 分钟没有成功同步时，顶部会弹出告警条（「后台同步连续失败 N 次…」「数据已 N 小时未更新…」）并带「立即恢复」按钮 —— 重新登记后台调度并立刻刷新。用户把 App 加进电池优化白名单后点一下即可恢复，不用等开机或重装
     - Android 12+ 无精确闹钟权限时自动降级为 `setAndAllowWhileIdle`；系统重复闹钟作为兜底始终存在
     - **前台看门狗**：App 内用「60 秒轮询 + 绝对时间戳判定」而不是 `setInterval(刷新, 30 分钟)` —— 后者一旦 useCallback 身份变化就会被重建、计时清零，导致「不手动点刷新就永远不刷新」（v1.2.6 修复）；顶部信息栏同时显示「版本号 + 下次刷新倒计时」，可直观确认定时器仍在工作
 11. **多端开箱即用**：
@@ -160,7 +161,7 @@ npx eas-cli build -p android --profile preview
 ```bash
 npm run typecheck                     # tsc --noEmit
 npm run lint                          # expo lint（react-hooks / no-unused-vars 均为 error）
-npm test                              # 30 分钟刷新一致性检查（68 项断言）
+npm test                              # 30 分钟刷新一致性检查（136 项断言）
 npm run test:policy                   # 刷新策略纯函数单测（113 项断言，离线）
 npm run test:overnight                # 关屏过夜端到端时间线（33 项断言，离线）
 npm run test:refresh                  # 上面三项一起跑
@@ -192,7 +193,7 @@ no-ad-weather/
 ├── App.js                         # 应用主入口，负责整体状态流、下拉刷新与页面编排
 ├── app.json                       # Expo 配置文件
 ├── package.json                   # 项目依赖与运行脚本
-├── scripts/verify_refresh.js      # 刷新一致性 + 看门狗 + 小部件按钮可见性断言脚本（112 项）
+├── scripts/verify_refresh.js      # 刷新一致性 + 看门狗 + 按钮可见性 + WorkManager 断言脚本（136 项）
 ├── scripts/test_refresh_policy.mjs # 刷新策略单测：前台恢复 / 跨夜判定 / 缓存解析与合并 / 看门狗（138 项，离线）
 ├── scripts/test_overnight_refresh.mjs # 关屏过夜端到端时间线：整夜刷新 → 回前台补水 → 跨夜重拉（33 项，离线）
 ├── scripts/test_forecast_days.mjs # 30 天预报数据层功能测试（真实请求）
@@ -204,7 +205,9 @@ no-ad-weather/
 │   ├── keystore.properties.example
 │   └── app/src/main/java/com/pure/mojiweather/
 │       ├── WeatherWidgetModule.kt           # 小部件数据/皮肤下发 + 原生缓存读取/后台刷新桥接
-│       ├── WeatherWidgetSyncHelper.kt       # 后台拉取 + 30 分钟双通道闹钟 + 同步时间戳
+│       ├── WeatherWidgetSyncHelper.kt       # 后台抓取核心（performSync）+ 30 分钟双通道闹钟 + 同步时间戳与失败计数
+│       ├── WeatherRefreshWorker.kt          # WorkManager Worker（ROM 后台限制下的兜底通道）
+│       ├── WeatherRefreshScheduler.kt       # 周期任务登记（KEEP 策略，避免反复重置周期）
 │       ├── WeatherWidgetAutoRefreshReceiver.kt  # 闹钟/开机/亮屏广播入口（先排钟后抓数据）
 │       ├── MainApplication.kt               # 动态注册亮屏监听（Android 8+ 隐式广播限制）
 │       ├── LocationModule.kt                # GPS 定位与反地理编码

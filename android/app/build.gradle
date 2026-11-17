@@ -103,8 +103,8 @@ android {
         applicationId 'com.pure.mojiweather'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 16
-        versionName "1.2.7"
+        versionCode 17
+        versionName "1.2.8"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
@@ -179,6 +179,13 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+
+    // WorkManager：系统级周期任务。
+    // 为什么需要它：AlarmManager 的一次性精确闹钟在国产 ROM（小米/华为/OPPO/vivo）上会被
+    // 「自启动管理」「后台限制」直接拦掉，setInexactRepeating 在 Doze 深度休眠里也可能被
+    // 推迟数小时。WorkManager 由系统 JobScheduler 托管，进程被杀后仍会被重新拉起，
+    // 是官方唯一推荐的后台可靠周期调度方案。
+    implementation("androidx.work:work-runtime-ktx:2.10.5")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";

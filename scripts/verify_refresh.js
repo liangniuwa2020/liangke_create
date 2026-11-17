@@ -404,13 +404,15 @@ assert(
   '兜底闹钟使用独立 requestCode，避免覆盖一次性精确闹钟'
 );
 
-// 9.2 广播接收器必须「先排下次闹钟，再抓数据」，否则抓取中途被杀就再也不会排。
+// 9.2 广播接收器必须「先排下次闹钟，再投递抓取任务」，否则抓取中途被杀就再也不会排。
+//     v1.2.8 起抓取改由 WorkManager 的一次性任务执行（见第 12 节），
+//     所以在 Receiver 里紧跟其后的动作是 enqueueImmediate 而不是 fetchWeatherInBackground。
 const receiver = read('android/app/src/main/java/com/pure/mojiweather/WeatherWidgetAutoRefreshReceiver.kt');
 const scheduleIdx = receiver.indexOf('scheduleAutoRefresh(appContext)');
-const fetchIdx = receiver.indexOf('fetchWeatherInBackground');
+const fetchIdx = receiver.indexOf('WeatherRefreshScheduler.enqueueImmediate');
 assert(
   scheduleIdx !== -1 && fetchIdx !== -1 && scheduleIdx < fetchIdx,
-  'Receiver 先调用 scheduleAutoRefresh 再发起网络请求（链路自愈）'
+  'Receiver 先调用 scheduleAutoRefresh 再投递抓取任务（链路自愈）'
 );
 assert(
   /ACTION_SCREEN_ON/.test(receiver) && /ACTION_LOCKED_BOOT_COMPLETED/.test(receiver),
@@ -639,6 +641,144 @@ const stringsXml = read('android/app/src/main/res/values/strings.xml');
 assert(
   /name="widget_btn_refresh_desc"/.test(stringsXml) && /name="widget_btn_skin_desc"/.test(stringsXml),
   'strings.xml 定义小部件按钮的 contentDescription 文案'
+);
+
+// ---------------------------------------------------------------
+// 第 12 节：过夜/关屏后台刷新的兜底链路（WorkManager）
+//
+// 真机反馈（v1.2.7 之后）：睡一觉起来小部件还是昨晚的时间和日期。
+// 前三轮修复都不足以穿透国产 ROM 的后台限制：
+//   · setExactAndAllowWhileIdle 的一次性精确闹钟会被「自启动管理 / 省电策略」整条拦掉；
+//   · setInexactRepeating 在 Doze 深度休眠里可能被推迟数小时；
+//   · BroadcastReceiver.goAsync() 只有约 10 秒执行预算，弱网请求会被系统砍断。
+// 所以新增 WorkManager 通道（JobScheduler 托管，进程被杀后仍会拉起、遵守 Doze 维护窗口）。
+// 这一节把这条链路钉死，防止后续重构悄悄把它删掉。
+// ---------------------------------------------------------------
+section('第 12 节：WorkManager 兜底刷新链路（穿透 ROM 后台限制）');
+
+const workerSrc = read('android/app/src/main/java/com/pure/mojiweather/WeatherRefreshWorker.kt');
+const schedulerSrc = read('android/app/src/main/java/com/pure/mojiweather/WeatherRefreshScheduler.kt');
+const helperSrc12 = read('android/app/src/main/java/com/pure/mojiweather/WeatherWidgetSyncHelper.kt');
+const receiverSrc12 = read('android/app/src/main/java/com/pure/mojiweather/WeatherWidgetAutoRefreshReceiver.kt');
+const mainAppSrc12 = read('android/app/src/main/java/com/pure/mojiweather/MainApplication.kt');
+const moduleSrc12 = read('android/app/src/main/java/com/pure/mojiweather/WeatherWidgetModule.kt');
+const gradleSrc12 = read('android/app/build.gradle');
+
+// —— 依赖声明 ——
+assert(
+  /androidx\.work:work-runtime-ktx:\s*\d/.test(gradleSrc12),
+  'build.gradle 声明 androidx.work 依赖（没有它 Worker 无法编译）'
+);
+
+// —— Worker 的成败语义 ——
+assert(
+  /class\s+WeatherRefreshWorker\b[\s\S]*?\bWorker\s*\(/.test(workerSrc),
+  'WeatherRefreshWorker 继承 androidx.work.Worker'
+);
+assert(
+  /override\s+fun\s+doWork\(\)\s*:\s*Result/.test(workerSrc),
+  'WeatherRefreshWorker 实现 doWork(): Result'
+);
+assert(
+  /WeatherWidgetSyncHelper\.performSync\(/.test(workerSrc),
+  'Worker 复用 performSync（与小部件刷新同一套逻辑，避免两套代码漂移）'
+);
+assert(
+  /Result\.retry\(\)/.test(workerSrc),
+  'Worker 失败时返回 Result.retry()（交给 WorkManager 指数退避，而不是静默丢弃）'
+);
+
+// —— performSync 必须返回成败 ——
+assert(
+  /fun\s+performSync\([^)]*\)\s*:\s*Boolean/.test(helperSrc12),
+  'WeatherWidgetSyncHelper.performSync 返回 Boolean 成败（Worker 需要确定结果）'
+);
+assert(
+  /KEY_SYNC_FAIL_COUNT/.test(helperSrc12) && /KEY_LAST_FAIL_AT/.test(helperSrc12),
+  '记录连续失败次数与最近失败时间（界面据此区分「没跑」与「跑了但失败」）'
+);
+assert(
+  /putInt\(KEY_SYNC_FAIL_COUNT,\s*0\)/.test(helperSrc12),
+  '同步成功时把失败计数清零（否则退避永远处于惩罚状态）'
+);
+
+// —— 调度器 ——
+assert(
+  /PeriodicWorkRequestBuilder<\s*WeatherRefreshWorker\s*>/.test(schedulerSrc),
+  'WeatherRefreshScheduler 使用 PeriodicWorkRequestBuilder 建周期任务'
+);
+assert(
+  /ExistingPeriodicWorkPolicy\.KEEP/.test(schedulerSrc),
+  '周期任务用 KEEP 入队（用 UPDATE 会把 30 分钟周期不断重置，等于永远等不到下一次）'
+);
+assert(
+  /OneTimeWorkRequestBuilder<\s*WeatherRefreshWorker\s*>/.test(schedulerSrc),
+  'WeatherRefreshScheduler 提供一次性立即刷新任务'
+);
+assert(
+  /NetworkType\.CONNECTED/.test(schedulerSrc),
+  '周期任务声明 CONNECTED 网络约束（无网时不空跑、不消耗电量）'
+);
+assert(
+  /enqueueUniqueWork\(\s*ONESHOT_WORK_NAME,\s*ExistingWorkPolicy\.REPLACE/.test(schedulerSrc),
+  '一次性任务用 REPLACE 唯一入队（避免用户连点刷新堆积任务）'
+);
+
+// —— 三处登记入口：启动、广播、小部件宿主回调 ——
+assert(
+  /WeatherRefreshScheduler\.enqueuePeriodic\(/.test(mainAppSrc12),
+  'MainApplication.onCreate 登记 WorkManager 周期任务（开机/升级后自愈）'
+);
+assert(
+  /WeatherRefreshScheduler\.enqueuePeriodic\(/.test(receiverSrc12)
+    && /WeatherRefreshScheduler\.enqueueImmediate\(/.test(receiverSrc12),
+  'AutoRefreshReceiver 命中广播时同时登记周期任务与一次性任务'
+);
+assert(
+  !/goAsync\(/.test(receiverSrc12),
+  'AutoRefreshReceiver 不再使用 goAsync（10 秒预算会被系统砍断，改由 Worker 执行）'
+);
+
+let providerRegCount = 0;
+for (const size of ['4x1', '4x2', '4x3']) {
+  const p = read(`android/app/src/main/java/com/pure/mojiweather/WeatherWidget${size}Provider.kt`);
+  if (/WeatherRefreshScheduler\.enqueuePeriodic\(/.test(p)) providerRegCount += 1;
+}
+assert(
+  providerRegCount === 3,
+  '三个小部件 Provider 的 onEnabled/onUpdate 都复查并补登记周期任务'
+);
+
+// —— JS 侧健康度展示 ——
+const syncHealthSrc = read('src/services/syncHealth.js');
+const appJs12 = read('App.js');
+assert(
+  /export\s+async\s+function\s+readSyncStatus/.test(syncHealthSrc),
+  'syncHealth.readSyncStatus 读取原生同步健康度'
+);
+assert(
+  /export\s+async\s+function\s+ensureBackgroundScheduler/.test(syncHealthSrc),
+  'syncHealth.ensureBackgroundScheduler 支持用户手动恢复后台调度'
+);
+assert(
+  /export\s+function\s+describeSyncHealth/.test(syncHealthSrc),
+  'syncHealth.describeSyncHealth 把失败次数/陈旧时长翻译成提示'
+);
+assert(
+  /fun\s+readSyncStatus\(promise:\s*Promise\)/.test(moduleSrc12),
+  'WeatherWidgetModule 暴露 readSyncStatus 原生方法'
+);
+assert(
+  /fun\s+ensureBackgroundScheduler\(promise:\s*Promise\)/.test(moduleSrc12),
+  'WeatherWidgetModule 暴露 ensureBackgroundScheduler 原生方法'
+);
+assert(
+  /describeSyncHealth\(/.test(appJs12) && /readSyncStatus\(/.test(appJs12),
+  'App.js 每拍读取并解释同步健康度'
+);
+assert(
+  /healthBar/.test(appJs12),
+  'App.js 渲染数据陈旧/失败告警条（不再静默显示旧数据）'
 );
 
 // ---------------------------------------------------------------

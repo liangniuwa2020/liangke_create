@@ -48,6 +48,10 @@ class MainApplication : Application(), ReactApplication {
     // （一次性精确闹钟 + 系统级重复兜底闹钟，进程被杀也不会停止）
     WeatherWidgetSyncHelper.scheduleAutoRefresh(this)
 
+    // 再挂一层 WorkManager 周期任务：国产 ROM 的「自启动/后台限制」会把 AlarmManager
+    // 直接拦掉，只有 JobScheduler 托管的任务能在进程被杀、重启后被系统重新拉起。
+    WeatherRefreshScheduler.enqueuePeriodic(this)
+
     registerScreenOnReceiver()
   }
 

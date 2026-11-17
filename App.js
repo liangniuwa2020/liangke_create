@@ -35,7 +35,6 @@ import {
 import { getAppVersion, formatVersionLabel } from './src/services/appInfo';
 import {
   readSyncStatus,
-  ensureBackgroundScheduler,
   describeSyncHealth,
 } from './src/services/syncHealth';
 import WeatherBackground from './src/components/WeatherBackground';
@@ -49,6 +48,7 @@ import LivingIndicesCard from './src/components/LivingIndicesCard';
 import WeatherDetailsGrid from './src/components/WeatherDetailsGrid';
 import CityManageModal from './src/components/CityManageModal';
 import AboutCleanModal from './src/components/AboutCleanModal';
+import BackgroundHealthModal from './src/components/BackgroundHealthModal';
 import SkinThemeModal from './src/components/SkinThemeModal';
 import WidgetCenterModal from './src/components/WidgetCenterModal';
 import DailyDetailModal from './src/components/DailyDetailModal';
@@ -95,6 +95,8 @@ export default function App() {
   const [isSkinModalVisible, setIsSkinModalVisible] = useState(false);
   const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
   const [isDailyDetailVisible, setIsDailyDetailVisible] = useState(false);
+  // 后台保活体检面板：用户过夜数据不刷新时，在这里看到 WorkManager/电池/闹钟的真实状态
+  const [isHealthModalVisible, setIsHealthModalVisible] = useState(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState(null);
   const lastRefreshTimestampRef = useRef(0);
   // 当前安装包的真实版本号（从原生 PackageInfo 读，不写死）
@@ -569,9 +571,14 @@ export default function App() {
           {/* 后台同步健康度告警条
               用户「睡一觉起来还是昨晚的数据」时，光看一个 HH:mm 分辨不出是
               「一直没跑」「跑了但失败」还是「跑成功了但数据本身是旧的」。
-              这里把原生侧的连续失败次数 / 陈旧时长直接摊开，并给一个恢复动作。 */}
+              这里把原生侧的连续失败次数 / 陈旧时长直接摊开，并给一个恢复动作。
+              点条身或「查看原因」都能打开体检面板，看到 WorkManager 与电池白名单的真实状态。 */}
           {syncHealth.level !== 'ok' && syncHealth.text ? (
-            <View style={styles.healthBar}>
+            <TouchableOpacity
+              style={styles.healthBar}
+              activeOpacity={0.85}
+              onPress={() => setIsHealthModalVisible(true)}
+            >
               <Ionicons
                 name={syncHealth.level === 'failing' ? 'alert-circle-outline' : 'time-outline'}
                 size={14}
@@ -580,19 +587,10 @@ export default function App() {
               <Text style={styles.healthText} numberOfLines={2}>
                 {syncHealth.text}
               </Text>
-              <TouchableOpacity
-                style={styles.healthBtn}
-                onPress={async () => {
-                  // 重新登记 WorkManager 周期任务 + AlarmManager，并把最新状态读回来
-                  await ensureBackgroundScheduler();
-                  const raw = await readSyncStatus();
-                  setSyncHealth(describeSyncHealth(raw));
-                  handleRefresh();
-                }}
-              >
-                <Text style={styles.healthBtnText}>立即恢复</Text>
-              </TouchableOpacity>
-            </View>
+              <View style={styles.healthBtn}>
+                <Text style={styles.healthBtnText}>查看原因</Text>
+              </View>
+            </TouchableOpacity>
           ) : null}
 
           {/* 加载中状态 */}
@@ -714,6 +712,16 @@ export default function App() {
                   <Ionicons name="shield-checkmark" size={16} color="#ffffff" style={{ marginRight: 5 }} />
                   <Text style={styles.quickBtnText}>纯净承诺</Text>
                 </TouchableOpacity>
+
+                {/* 后台体检：过夜数据不刷新时，用来确认 WorkManager/电池/闹钟的真实状态 */}
+                <TouchableOpacity
+                  style={styles.quickBtn}
+                  onPress={() => setIsHealthModalVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="pulse" size={16} color="#ffffff" style={{ marginRight: 5 }} />
+                  <Text style={styles.quickBtnText}>后台体检</Text>
+                </TouchableOpacity>
               </View>
 
               {/* 底部纯净承诺标语 */}
@@ -740,6 +748,13 @@ export default function App() {
             visible={isCleanModalVisible}
             onClose={() => setIsCleanModalVisible(false)}
             versionLabel={versionLabel}
+          />
+
+          {/* 后台保活体检弹窗 */}
+          <BackgroundHealthModal
+            visible={isHealthModalVisible}
+            onClose={() => setIsHealthModalVisible(false)}
+            onManualRefresh={handleRefresh}
           />
 
           {/* 皮肤中心弹窗 */}

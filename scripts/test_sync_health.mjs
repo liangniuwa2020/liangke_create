@@ -228,17 +228,153 @@ async function main() {
     path.join(ROOT, 'android/app/src/main/java/com/pure/mojiweather/WeatherRefreshWorker.kt'),
     'utf8'
   );
-  check('App.js 导入 readSyncStatus / describeSyncHealth',
-    /readSyncStatus/.test(appJs) && /describeSyncHealth/.test(appJs));
-  check('App.js 在看门狗每一拍刷新健康度', /refreshSyncHealth/.test(appJs));
-  check('App.js 渲染告警条', /healthBar/.test(appJs));
-  check('告警条提供「立即恢复」动作', /ensureBackgroundScheduler\(\)/.test(appJs) && /立即恢复/.test(appJs));
+  check('App.js 用原生 readSyncStatus 状态渲染提示（不再静默显示旧数据）', /readSyncStatus/.test(appJs) && /healthBar/.test(appJs));
+  check('告警条引导到体检面板（查看原因）', /setIsHealthModalVisible\(true\)/.test(appJs) && /查看原因/.test(appJs));
   check('原生 readSyncStatus 读取失败计数',
     /fun\s+readSyncStatus\(promise:\s*Promise\)/.test(moduleKt) && /KEY_SYNC_FAIL_COUNT/.test(moduleKt));
   check('原生 ensureBackgroundScheduler 重新登记周期任务',
     /fun\s+ensureBackgroundScheduler\(promise:\s*Promise\)/.test(moduleKt) && /enqueuePeriodic/.test(moduleKt));
   check('Worker 用 performSync 的布尔结果决定 success/retry',
     /performSync\(/.test(workerKt) && /Result\.success\(\)/.test(workerKt) && /Result\.retry\(\)/.test(workerKt));
+
+  // ---------------------------------------------------------------
+  console.log('\n[7] parseWorkState：解析原生状态串');
+  const parseWorkState = health.parseWorkState;
+  check('导出 parseWorkState', typeof parseWorkState === 'function');
+  check('ENQUEUED|runs=0', (() => { const r = parseWorkState('ENQUEUED|runs=0'); return r.state === 'ENQUEUED' && r.runs === 0; })());
+  check('ENQUEUED|runs=4 解析出重试次数', parseWorkState('ENQUEUED|runs=4').runs === 4);
+  check('MISSING 原样作为 state', parseWorkState('MISSING').state === 'MISSING');
+  check('ERROR:SecurityException 保留错误类型', parseWorkState('ERROR:SecurityException').state === 'ERROR:SecurityException');
+  check('空串降级为 UNKNOWN', parseWorkState('').state === 'UNKNOWN');
+  check('非字符串降级为 UNKNOWN', parseWorkState(null).state === 'UNKNOWN' && parseWorkState(42).runs === 0);
+  check('无 runs 字段时 runs=0', parseWorkState('RUNNING').runs === 0);
+
+  // ---------------------------------------------------------------
+  console.log('\n[8] readBackgroundDiagnostics：原生缺失与脏数据');
+  const diagEmpty = await loadSyncHealth({}, policy).readBackgroundDiagnostics();
+  check('无原生模块时返回空体检结果', diagEmpty.workState === 'UNKNOWN' && diagEmpty.batteryOptimizationIgnored === false);
+  check('无原生模块时 exactAlarmAllowed 默认 false（保守）', diagEmpty.exactAlarmAllowed === false);
+  const diagDirty = await loadSyncHealth(
+    {
+      WeatherWidgetModule: {
+        readBackgroundDiagnostics: async () => ({
+          workState: 123,
+          batteryOptimizationIgnored: 'yes',
+          exactAlarmAllowed: 1,
+          lastSyncAt: 'x',
+          failCount: null,
+          manufacturer: 7,
+          sdkInt: NaN,
+        }),
+      },
+    },
+    policy
+  ).readBackgroundDiagnostics();
+  check('非字符串 workState 归一为 UNKNOWN', diagDirty.workState === 'UNKNOWN');
+  check('非 true 的 batteryOptimizationIgnored 归一为 false', diagDirty.batteryOptimizationIgnored === false);
+  check('非 true 的 exactAlarmAllowed 归一为 false', diagDirty.exactAlarmAllowed === false);
+  check('非数字 lastSyncAt 归一为 0', diagDirty.lastSyncAt === 0);
+  check('非数字 sdkInt 归一为 0', diagDirty.sdkInt === 0);
+  check('非字符串 manufacturer 归一为空串', diagDirty.manufacturer === '');
+
+  // ---------------------------------------------------------------
+  console.log('\n[9] describeBackgroundDiagnosis：问题清单');
+  const diagnose = health.describeBackgroundDiagnosis;
+  check('导出 describeBackgroundDiagnosis', typeof diagnose === 'function');
+
+  const healthyDiag = {
+    workState: 'ENQUEUED|runs=0',
+    batteryOptimizationIgnored: true,
+    exactAlarmAllowed: true,
+    lastSyncAt: now - 5 * MINUTE,
+    failCount: 0,
+    lastFailAt: 0,
+    sdkInt: 34,
+  };
+  check('一切正常时问题清单为空', diagnose(healthyDiag, now).length === 0, `${diagnose(healthyDiag, now).length} 条`);
+
+  const missingWork = diagnose({ ...healthyDiag, workState: 'MISSING' }, now);
+  check('任务被清掉时报 work-missing', missingWork.some((i) => i.key === 'work-missing'));
+  check('work-missing 给的处置是重新登记', missingWork.find((i) => i.key === 'work-missing').action === 'reschedule');
+
+  const cancelled = diagnose({ ...healthyDiag, workState: 'CANCELLED' }, now);
+  check('任务被取消同样报 work-missing', cancelled.some((i) => i.key === 'work-missing'));
+
+  const failed = diagnose({ ...healthyDiag, workState: 'FAILED' }, now);
+  check('任务失败报 work-failed', failed.some((i) => i.key === 'work-failed'));
+
+  const blocked = diagnose({ ...healthyDiag, workState: 'BLOCKED' }, now);
+  check('任务被阻塞报 work-blocked（warn 级）',
+    blocked.some((i) => i.key === 'work-blocked' && i.level === 'warn'));
+
+  const noBattery = diagnose({ ...healthyDiag, batteryOptimizationIgnored: false }, now);
+  check('不在电池白名单时报 battery-optimized', noBattery.some((i) => i.key === 'battery-optimized'));
+  check('battery-optimized 给的处置是去设置', noBattery.find((i) => i.key === 'battery-optimized').action === 'battery');
+
+  const noAlarm = diagnose({ ...healthyDiag, exactAlarmAllowed: false }, now);
+  check('未授予精确闹钟报 exact-alarm-denied', noAlarm.some((i) => i.key === 'exact-alarm-denied'));
+
+  const oldSdk = diagnose({ ...healthyDiag, exactAlarmAllowed: false, sdkInt: 30 }, now);
+  check('Android 11 及以下不因精确闹钟报警（该版本无需该权限）',
+    !oldSdk.some((i) => i.key === 'exact-alarm-denied'));
+
+  const staleDiag = diagnose({ ...healthyDiag, lastSyncAt: now - 9 * 60 * MINUTE }, now);
+  check('9 小时未成功同步报 stale', staleDiag.some((i) => i.key === 'stale'));
+  check('stale 文案带小时数', /9 小时/.test(staleDiag.find((i) => i.key === 'stale').text));
+
+  const failingDiag = diagnose({ ...healthyDiag, failCount: 5, lastFailAt: now }, now);
+  check('连续失败报 failing', failingDiag.some((i) => i.key === 'failing'));
+  check('failing 文案带次数', /连续 5 次/.test(failingDiag.find((i) => i.key === 'failing').text));
+
+  const mixed = diagnose(
+    { workState: 'MISSING', batteryOptimizationIgnored: false, exactAlarmAllowed: false, lastSyncAt: now - 10 * 60 * MINUTE, failCount: 4, sdkInt: 34 },
+    now
+  );
+  check('多因叠加时逐条列出（而不是只报一条）', mixed.length >= 5, `${mixed.length} 条`);
+  check('多因共存时 contains work-missing + battery-optimized + exact-alarm-denied + stale + failing',
+    mixed.some((i) => i.key === 'work-missing')
+    && mixed.some((i) => i.key === 'battery-optimized')
+    && mixed.some((i) => i.key === 'exact-alarm-denied')
+    && mixed.some((i) => i.key === 'stale')
+    && mixed.some((i) => i.key === 'failing'));
+  check('每条问题都带 level 与可执行 action',
+    mixed.every((i) => (i.level === 'error' || i.level === 'warn') && ['reschedule', 'battery', 'refresh', null].includes(i.action)));
+  check('空状态不抛错', Array.isArray(diagnose(null, now)));
+
+  // ---------------------------------------------------------------
+  console.log('\n[10] openBatterySettings：原生缺失时不得抛错');
+  const openMissing = await loadSyncHealth({}, policy).openBatterySettings();
+  check('无原生模块返回 false', openMissing === false);
+  let opened = 0;
+  const openOk = await loadSyncHealth(
+    { WeatherWidgetModule: { openBatterySettings: async () => { opened += 1; return true; } } },
+    policy
+  ).openBatterySettings();
+  check('原生可用时返回 true', openOk === true && opened === 1);
+
+  // ---------------------------------------------------------------
+  console.log('\n[11] 原生与面板接线');
+  const schedulerKt = fs.readFileSync(
+    path.join(ROOT, 'android/app/src/main/java/com/pure/mojiweather/WeatherRefreshScheduler.kt'),
+    'utf8'
+  );
+  const healthModal = fs.readFileSync(
+    path.join(ROOT, 'src/components/BackgroundHealthModal.js'),
+    'utf8'
+  );
+  check('Scheduler 提供 describePeriodicState', /fun describePeriodicState\(/.test(schedulerKt));
+  check('Scheduler 用 getWorkInfosForUniqueWork 查真实状态', /getWorkInfosForUniqueWork\(/.test(schedulerKt));
+  check('Scheduler 区分 ENQUEUED / CANCELLED', /WorkInfo\.State\.ENQUEUED/.test(schedulerKt) && /WorkInfo\.State\.CANCELLED/.test(schedulerKt));
+  check('Scheduler 查询有 3 秒超时（避免主线程卡死）', /\.get\(3, TimeUnit\.SECONDS\)/.test(schedulerKt));
+  check('原生暴露 readBackgroundDiagnostics', /fun\s+readBackgroundDiagnostics\(promise:\s*Promise\)/.test(moduleKt));
+  check('原生读电池优化白名单', /isIgnoringBatteryOptimizations\(/.test(moduleKt));
+  check('原生读精确闹钟权限', /canScheduleExactAlarms\(/.test(moduleKt));
+  check('原生暴露 openBatterySettings', /fun\s+openBatterySettings\(promise:\s*Promise\)/.test(moduleKt));
+  check('体检面板读取 readBackgroundDiagnostics', /readBackgroundDiagnostics\(/.test(healthModal));
+  check('体检面板展示 workState', /workState/.test(healthModal));
+  check('体检面板展示电池白名单状态', /batteryOptimizationIgnored/.test(healthModal));
+  check('体检面板提供重新登记', /ensureBackgroundScheduler\(/.test(healthModal));
+  check('体检面板提供去电池设置', /openBatterySettings\(/.test(healthModal));
 
   report();
 }

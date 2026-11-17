@@ -782,6 +782,94 @@ assert(
 );
 
 // ---------------------------------------------------------------
+section('13 后台保活体检：把 WorkManager / 电池白名单 / 精确闹钟的真实状态端给用户');
+// ---------------------------------------------------------------
+
+assert(
+  /fun\s+describePeriodicState\(\s*context:\s*Context\s*\)/.test(schedulerSrc),
+  'WeatherRefreshScheduler 提供 describePeriodicState 查询周期任务的真实状态'
+);
+assert(
+  /getWorkInfosForUniqueWork\(\s*PERIODIC_WORK_NAME\s*\)/.test(schedulerSrc),
+  '体检读的是唯一周期任务名（否则查不到 ROM 留下的僵尸任务）'
+);
+assert(
+  /WorkInfo\.State\.ENQUEUED/.test(schedulerSrc) && /WorkInfo\.State\.CANCELLED/.test(schedulerSrc),
+  '体检区分 ENQUEUED 与 CANCELLED（被清掉 vs 被压着不跑，处置方式完全不同）'
+);
+assert(
+  /fun\s+readBackgroundDiagnostics\(promise:\s*Promise\)/.test(moduleSrc12),
+  'WeatherWidgetModule 暴露 readBackgroundDiagnostics 原生方法'
+);
+assert(
+  /isIgnoringBatteryOptimizations\(/.test(moduleSrc12),
+  '体检读取 isIgnoringBatteryOptimizations（电池优化白名单是国产 ROM 冻结后台的主因）'
+);
+assert(
+  /canScheduleExactAlarms\(/.test(moduleSrc12),
+  '体检读取 canScheduleExactAlarms（Android 12+ 默认不授予精确闹钟）'
+);
+assert(
+  /fun\s+openBatterySettings\(promise:\s*Promise\)/.test(moduleSrc12),
+  'WeatherWidgetModule 暴露 openBatterySettings 直达系统电池设置'
+);
+assert(
+  /ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS/.test(moduleSrc12),
+  '跳转用系统官方设置页，不申请 REQUEST_IGNORE_BATTERY_OPTIMIZATIONS 敏感权限'
+);
+
+assert(
+  /export\s+async\s+function\s+readBackgroundDiagnostics/.test(syncHealthSrc),
+  'syncHealth.readBackgroundDiagnostics 读取原生体检结果'
+);
+assert(
+  /export\s+function\s+describeBackgroundDiagnosis/.test(syncHealthSrc),
+  'syncHealth.describeBackgroundDiagnosis 把体检结果翻译成问题清单'
+);
+assert(
+  /export\s+async\s+function\s+openBatterySettings/.test(syncHealthSrc),
+  'syncHealth.openBatterySettings 供界面跳转系统设置'
+);
+assert(
+  /export\s+function\s+parseWorkState/.test(syncHealthSrc),
+  'syncHealth.parseWorkState 解析原生状态串'
+);
+assert(
+  /work-missing/.test(syncHealthSrc) && /battery-optimized/.test(syncHealthSrc),
+  '问题清单覆盖「任务被清掉」与「仍受电池优化限制」两种主因'
+);
+assert(
+  /exact-alarm-denied/.test(syncHealthSrc),
+  '问题清单覆盖「未授予精确闹钟权限」'
+);
+
+const healthModalSrc = read('src/components/BackgroundHealthModal.js');
+assert(
+  /readBackgroundDiagnostics\(/.test(healthModalSrc) && /describeBackgroundDiagnosis\(/.test(healthModalSrc),
+  'BackgroundHealthModal 打开时读取并解释体检结果'
+);
+assert(
+  /ensureBackgroundScheduler\(/.test(healthModalSrc),
+  '体检面板提供「重新登记」动作'
+);
+assert(
+  /openBatterySettings\(/.test(healthModalSrc),
+  '体检面板提供「去电池设置」动作'
+);
+assert(
+  /workState/.test(healthModalSrc) && /batteryOptimizationIgnored/.test(healthModalSrc),
+  '体检面板把后台任务状态与电池白名单直接摊开显示'
+);
+assert(
+  /<BackgroundHealthModal/.test(appJs12) && /isHealthModalVisible/.test(appJs12),
+  'App.js 挂载体检面板并控制其可见性'
+);
+assert(
+  /setIsHealthModalVisible\(true\)/.test(appJs12),
+  '告警条与快捷入口都能打开体检面板'
+);
+
+// ---------------------------------------------------------------
 // 汇总
 // ---------------------------------------------------------------
 console.log(`\n${'-'.repeat(60)}`);

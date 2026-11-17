@@ -8,6 +8,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 
@@ -28,10 +29,10 @@ object WeatherRefreshScheduler {
     private const val TAG = "WeatherRefreshScheduler"
 
     /** 周期任务的唯一名字：用 KEEP 策略入队，重复调用不会堆叠出多个任务 */
-    private const val PERIODIC_WORK_NAME = "weather_periodic_refresh"
+    const val PERIODIC_WORK_NAME = "weather_periodic_refresh"
 
     /** 一次性补刷任务名 */
-    private const val ONESHOT_WORK_NAME = "weather_oneshot_refresh"
+    const val ONESHOT_WORK_NAME = "weather_oneshot_refresh"
 
     /** 与 AlarmManager 侧保持一致的 30 分钟周期 */
     private const val REFRESH_INTERVAL_MINUTES = 30L
@@ -105,6 +106,44 @@ object WeatherRefreshScheduler {
             Log.d(TAG, "Cancelled all weather refresh work")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to cancel work", e)
+        }
+    }
+
+    /**
+     * 读回周期任务在系统里的真实状态（阻塞调用，必须在后台线程执行）。
+     *
+     * 为什么需要它：用户在 MyOS / MIUI 这类 ROM 上「睡一觉起来数据还是昨天的」时，
+     * 光看界面无法区分两种情况 ——
+     *   ①任务还在队列里，只是被系统压着没跑（ENQUEUED 且 nextScheduleTime 一直往后推）；
+     *   ②任务已经被 ROM 连同 App 后台权限一起清掉了（列表为空）。
+     * 这两种的处置方式完全不同，所以必须把 WorkInfo 状态端出来给用户看。
+     *
+     * @return 形如 "ENQUEUED|runs=0"，查询失败或任务不存在时返回 "MISSING" / "ERROR: ..."
+     */
+    fun describePeriodicState(context: Context): String {
+        return try {
+            val infos = WorkManager.getInstance(context.applicationContext)
+                .getWorkInfosForUniqueWork(PERIODIC_WORK_NAME)
+                .get(3, TimeUnit.SECONDS)
+
+            if (infos.isNullOrEmpty()) {
+                "MISSING"
+            } else {
+                val info = infos[0]
+                // WorkInfo.State 是枚举且已全部覆盖，不需要 else 分支
+                val state = when (info.state) {
+                    WorkInfo.State.ENQUEUED -> "ENQUEUED"
+                    WorkInfo.State.RUNNING -> "RUNNING"
+                    WorkInfo.State.SUCCEEDED -> "SUCCEEDED"
+                    WorkInfo.State.FAILED -> "FAILED"
+                    WorkInfo.State.BLOCKED -> "BLOCKED"
+                    WorkInfo.State.CANCELLED -> "CANCELLED"
+                }
+                "$state|runs=${info.runAttemptCount}"
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to describe work state", e)
+            "ERROR:${e.javaClass.simpleName}"
         }
     }
 }

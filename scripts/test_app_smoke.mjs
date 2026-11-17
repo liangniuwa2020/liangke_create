@@ -101,6 +101,30 @@ async function main() {
   check('版本号缺失时显示占位符 v—', headerNoVersion.includes('v—'));
   check('提示缺失时不渲染空提示节点', !headerNoVersion.includes('下次刷新'));
 
+  console.log('\n[6] 后台体检面板可渲染');
+  const { default: BackgroundHealthModal } = await import('../src/components/BackgroundHealthModal.js');
+  const healthHtml = renderToStaticMarkup(
+    React.createElement(BackgroundHealthModal, {
+      visible: true,
+      onClose: () => {},
+      onManualRefresh: () => {},
+    })
+  );
+  check('体检面板渲染未抛异常', healthHtml.length > 100, `${healthHtml.length} 字符`);
+  check('体检面板标题存在', healthHtml.includes('后台刷新体检'));
+  // 服务端渲染不执行 useEffect，因此应停留在读取态而不是提前显示结论
+  check('首帧显示读取中的提示', healthHtml.includes('正在读取系统状态'));
+  check('体检面板不把未读到的状态当成正常', !healthHtml.includes('一切正常'));
+
+  const healthHidden = renderToStaticMarkup(
+    React.createElement(BackgroundHealthModal, {
+      visible: false,
+      onClose: () => {},
+      onManualRefresh: () => {},
+    })
+  );
+  check('hidden 时不渲染任何内容', healthHidden === '', `${healthHidden.length} 字符`);
+
   report();
 }
 

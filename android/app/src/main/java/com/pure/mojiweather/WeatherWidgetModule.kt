@@ -174,4 +174,81 @@ class WeatherWidgetModule(private val reactContext: ReactApplicationContext) : R
             promise.reject("E_REFRESH", e)
         }
     }
+
+    /**
+     * 后台保活体检：一次性把排查「过夜不刷新」需要的全部事实端出来。
+     *
+     * 为什么要这么细：MyOS / MIUI 这类 ROM 上，用户看到「数据还是昨天的」时，
+     * 可能是四个完全不同的原因，处置办法也完全不同 ——
+     *   ①WorkManager 周期任务被 ROM 删了（workState = MISSING）→ 点「立即恢复」重登记；
+     *   ②任务还在但一直被压着没跑（workState = ENQUEUED 且 lastSyncAt 很旧）→ 需要加电池白名单；
+     *   ③系统压根不允许精确闹钟（exactAlarmAllowed = false）→ 只能在设置里手动开；
+     *   ④任务跑了但网络全失败（failCount 一直在涨）→ 查网络/查是否被流量限制。
+     * 把这些都显示在界面上，用户不用连电脑也能自己判断。
+     */
+    @ReactMethod
+    fun readBackgroundDiagnostics(promise: Promise) {
+        try {
+            val prefs = reactContext.getSharedPreferences(WeatherWidgetSyncHelper.PREFS_NAME, Context.MODE_PRIVATE)
+            val pm = reactContext.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+            val am = reactContext.getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager
+
+            val exactAlarmAllowed = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                am?.canScheduleExactAlarms() ?: false
+            } else {
+                true
+            }
+
+            val result = Arguments.createMap().apply {
+                putString("workState", WeatherRefreshScheduler.describePeriodicState(reactContext))
+                putBoolean("batteryOptimizationIgnored", pm?.isIgnoringBatteryOptimizations(reactContext.packageName) ?: false)
+                putBoolean("exactAlarmAllowed", exactAlarmAllowed)
+                putDouble("lastSyncAt", prefs.getLong(WeatherWidgetSyncHelper.KEY_LAST_SYNC_AT, 0L).toDouble())
+                putInt("failCount", prefs.getInt(WeatherWidgetSyncHelper.KEY_SYNC_FAIL_COUNT, 0))
+                putDouble("lastFailAt", prefs.getLong(WeatherWidgetSyncHelper.KEY_LAST_FAIL_AT, 0L).toDouble())
+                putString("manufacturer", android.os.Build.MANUFACTURER ?: "")
+                putString("brand", android.os.Build.BRAND ?: "")
+                putString("model", android.os.Build.MODEL ?: "")
+                putInt("sdkInt", android.os.Build.VERSION.SDK_INT)
+            }
+            promise.resolve(result)
+        } catch (e: Exception) {
+            promise.reject("E_DIAGNOSTICS", e)
+        }
+    }
+
+    /**
+     * 跳到系统的「电池优化 / 后台耗电管理」页面。
+     *
+     * 不用 ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS（那条要申请敏感权限、上架审核容易被拒），
+     * 只做「把用户送到能自己点的地方」，落在系统自带的设置页，安全且无权限要求。
+     */
+    @ReactMethod
+    fun openBatterySettings(promise: Promise) {
+        try {
+            val candidates = listOf(
+                android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS,
+                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+            )
+            var opened = false
+            for (action in candidates) {
+                try {
+                    val intent = android.content.Intent(action).apply {
+                        if (action == android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS) {
+                            data = android.net.Uri.parse("package:${reactContext.packageName}")
+                        }
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    reactContext.startActivity(intent)
+                    opened = true
+                    break
+                } catch (_: Exception) {
+                    // 换下一个候选
+                }
+            }
+            promise.resolve(opened)
+        } catch (e: Exception) {
+            promise.reject("E_OPEN_SETTINGS", e)
+        }
+    }
 }

@@ -68,6 +68,156 @@ export async function ensureBackgroundScheduler() {
   }
 }
 
+const EMPTY_DIAGNOSTICS = {
+  workState: 'UNKNOWN',
+  batteryOptimizationIgnored: false,
+  exactAlarmAllowed: false,
+  lastSyncAt: 0,
+  failCount: 0,
+  lastFailAt: 0,
+  manufacturer: '',
+  brand: '',
+  model: '',
+  sdkInt: 0,
+};
+
+/**
+ * 读取原生侧的「后台保活体检」结果。
+ *
+ * 相比 readSyncStatus，这里多了三项只有系统才知道的事实：
+ *   - workState：WorkManager 周期任务在系统队列里的真实状态（MISSING 表示已被 ROM 清掉）
+ *   - batteryOptimizationIgnored：本应用是否已被排除在电池优化之外
+ *   - exactAlarmAllowed：是否允许精确闹钟（Android 12+ 默认不允许）
+ */
+export async function readBackgroundDiagnostics() {
+  const mod = NativeModules && NativeModules.WeatherWidgetModule;
+  if (!mod || typeof mod.readBackgroundDiagnostics !== 'function') {
+    return { ...EMPTY_DIAGNOSTICS };
+  }
+  try {
+    const raw = await mod.readBackgroundDiagnostics();
+    if (!raw || typeof raw !== 'object') return { ...EMPTY_DIAGNOSTICS };
+    return {
+      workState: typeof raw.workState === 'string' ? raw.workState : 'UNKNOWN',
+      batteryOptimizationIgnored: raw.batteryOptimizationIgnored === true,
+      exactAlarmAllowed: raw.exactAlarmAllowed === true,
+      lastSyncAt: Number.isFinite(raw.lastSyncAt) ? raw.lastSyncAt : 0,
+      failCount: Number.isFinite(raw.failCount) ? raw.failCount : 0,
+      lastFailAt: Number.isFinite(raw.lastFailAt) ? raw.lastFailAt : 0,
+      manufacturer: typeof raw.manufacturer === 'string' ? raw.manufacturer : '',
+      brand: typeof raw.brand === 'string' ? raw.brand : '',
+      model: typeof raw.model === 'string' ? raw.model : '',
+      sdkInt: Number.isFinite(raw.sdkInt) ? raw.sdkInt : 0,
+    };
+  } catch (_e) {
+    return { ...EMPTY_DIAGNOSTICS };
+  }
+}
+
+/** 打开系统的电池优化设置页，让用户自己把本应用加进白名单。 */
+export async function openBatterySettings() {
+  const mod = NativeModules && NativeModules.WeatherWidgetModule;
+  if (!mod || typeof mod.openBatterySettings !== 'function') return false;
+  try {
+    await mod.openBatterySettings();
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+/** 把 WorkManager 状态串（如 "ENQUEUED|runs=0"）拆成可读字段。 */
+export function parseWorkState(raw) {
+  const text = typeof raw === 'string' ? raw : '';
+  if (!text) return { state: 'UNKNOWN', runs: 0 };
+  const [state, ...rest] = text.split('|');
+  let runs = 0;
+  for (const part of rest) {
+    const m = /^runs=(\d+)$/.exec(part);
+    if (m) runs = Number(m[1]);
+  }
+  return { state: state || 'UNKNOWN', runs };
+}
+
+/**
+ * 把体检结果翻译成一串「问题 + 该怎么处理」。
+ *
+ * 之所以要一次性列出全部问题（而不是只报一条）：这类故障常常是叠加的
+ * ——比如既被 ROM 清掉任务、又没开精确闹钟、又不在电池白名单里，
+ * 只修一条还是会复发。用户按顺序逐条处理才不会来回折腾。
+ *
+ * @returns {Array<{key:string, level:'error'|'warn', text:string, action:null|'reschedule'|'battery'|'refresh'}>}
+ */
+export function describeBackgroundDiagnosis(diag, now = Date.now()) {
+  const d = diag && typeof diag === 'object' ? { ...EMPTY_DIAGNOSTICS, ...diag } : EMPTY_DIAGNOSTICS;
+  const issues = [];
+  const { state } = parseWorkState(d.workState);
+  const ageMinutes = syncAgeMinutes(d.lastSyncAt, now);
+
+  if (state === 'MISSING' || state === 'CANCELLED') {
+    issues.push({
+      key: 'work-missing',
+      level: 'error',
+      text: '系统里已经找不到后台刷新任务，多半是被省电策略或安全软件清掉了',
+      action: 'reschedule',
+    });
+  } else if (state === 'FAILED' || state.startsWith('ERROR')) {
+    issues.push({
+      key: 'work-failed',
+      level: 'error',
+      text: '后台刷新任务执行失败并被系统停用',
+      action: 'reschedule',
+    });
+  } else if (state === 'BLOCKED') {
+    issues.push({
+      key: 'work-blocked',
+      level: 'warn',
+      text: '后台刷新任务被系统阻塞，等待网络或电量条件满足',
+      action: 'refresh',
+    });
+  }
+
+  if (!d.batteryOptimizationIgnored) {
+    issues.push({
+      key: 'battery-optimized',
+      level: 'warn',
+      text: '本应用仍受电池优化限制，息屏后可能被冻结',
+      action: 'battery',
+    });
+  }
+
+  if (d.sdkInt >= 31 && !d.exactAlarmAllowed) {
+    issues.push({
+      key: 'exact-alarm-denied',
+      level: 'warn',
+      text: '系统未授予精确闹钟权限，30 分钟准点刷新降级为不确定延迟',
+      action: 'battery',
+    });
+  }
+
+  if (Number.isFinite(ageMinutes) && ageMinutes >= STALE_WARN_MINUTES) {
+    const hours = Math.floor(ageMinutes / 60);
+    const label = hours >= 1 ? `${hours} 小时` : `${Math.round(ageMinutes)} 分钟`;
+    issues.push({
+      key: 'stale',
+      level: 'error',
+      text: `已经 ${label}没成功拿到新数据`,
+      action: 'refresh',
+    });
+  }
+
+  if (Number.isFinite(d.failCount) && d.failCount >= FAIL_WARN_COUNT) {
+    issues.push({
+      key: 'failing',
+      level: 'error',
+      text: `连续 ${d.failCount} 次请求失败，请检查网络`,
+      action: 'refresh',
+    });
+  }
+
+  return issues;
+}
+
 /**
  * 把原始状态解释成一句人话 + 一个严重级别。
  *
@@ -107,4 +257,12 @@ export function describeSyncHealth(status, now = Date.now()) {
   return { level: 'ok', text: '', ageMinutes };
 }
 
-export default { readSyncStatus, ensureBackgroundScheduler, describeSyncHealth };
+export default {
+  readSyncStatus,
+  ensureBackgroundScheduler,
+  describeSyncHealth,
+  readBackgroundDiagnostics,
+  describeBackgroundDiagnosis,
+  openBatterySettings,
+  parseWorkState,
+};

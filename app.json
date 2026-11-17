@@ -2,7 +2,7 @@
   "expo": {
     "name": "无广告天气",
     "slug": "no-ad-weather",
-    "version": "1.2.8",
+    "version": "1.2.9",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "com.pure.mojiweather",
-      "versionCode": 17,
+      "versionCode": 18,
       "adaptiveIcon": {
         "backgroundColor": "#2980b9",
         "foregroundImage": "./assets/android-icon-foreground.png",

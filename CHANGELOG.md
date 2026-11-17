@@ -1,5 +1,29 @@
 # 无广告天气 (No Ad Weather) - 更新日志
 
+## [v1.2.9] - 2026-11-17
+
+### 后台保活体检（针对 MyOS / MIUI 等严格 ROM）
+上一版加了 WorkManager 通道，但用户装上后仍然只能「等一夜看结果」，出问题时也无从判断是任务被清、被压着没跑、还是没权限。这一版把排查所需的事实全部搬到界面上。
+
+- 新增 **后台体检面板**（首页「后台体检」入口，或点告警条进入），一次性显示六项系统级事实：
+  - 上次成功同步距今多久
+  - WorkManager 周期任务的真实状态（`ENQUEUED` / `RUNNING` / `MISSING` / `CANCELLED` / `BLOCKED` / `FAILED`），以及已被系统重试多少次
+  - **电池优化白名单**是否放行（`isIgnoringBatteryOptimizations`）
+  - **精确闹钟权限**是否授予（Android 12+ 默认不授予）
+  - 连续失败次数
+  - 机型与 Android 版本
+- 问题会**逐条列出并各带一个可执行动作**：任务被清 → 「重新登记」；不在白名单 / 缺精确闹钟 → 「去设置」；数据陈旧 / 连续失败 → 「立即刷新」。之所以一次列全（而不是只报第一条）：这类故障常常叠加出现，只修一条还会复发。
+- 新增原生 `readBackgroundDiagnostics`（读 WorkManager 状态 + 电池白名单 + 精确闹钟 + 失败计数 + 机型）与 `openBatterySettings`（直达系统电池优化设置页；刻意不用 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` 敏感权限，落点仍是系统自带页面）。
+- `WeatherRefreshScheduler.describePeriodicState()` 通过 `getWorkInfosForUniqueWork` 查询周期任务的系统态，3 秒超时防卡死。
+- 首页告警条从「立即恢复」改为「查看原因」，点击直接打开体检面板 —— 原来的做法是盲目重登记，看不到真实原因。
+
+### 测试
+- `scripts/verify_refresh.js` 新增第 13 节 20 项（体检链路），总计 **156** 项。
+- `scripts/test_sync_health.mjs` 新增 `[7]`–`[11]` 共 48 项（`parseWorkState` 状态串解析、体检脏数据归一化、问题清单九种组合含「Android 11 不误报精确闹钟」、多因叠加逐条列出），总计 **88** 项。
+
+### 版本
+- versionCode 18 / versionName 1.2.9。
+
 ## [v1.2.8] - 2026-11-17
 
 用户实测反馈：「睡了一觉起来，发现小部件还是不会自动刷新，时间和日期还是昨天晚上的」。
